@@ -1,5 +1,5 @@
 {
-  "name": "e-maap-verify-backend",
+  "name": "e-maap-verify",
   "version": "1.0.0",
   "description": "DoCA Legal Metrology Online Verification & Inspection Engine Backend",
   "main": "server.js",
