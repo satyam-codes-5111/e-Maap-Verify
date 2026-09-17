@@ -162,7 +162,9 @@ export const ApplicantNotificationsPage: React.FC = () => {
                         <span className="w-2 h-2 rounded-full bg-teal-600 inline-block" />
                       )}
                     </div>
-                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{n.message}</p>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      {typeof n.message === 'object' ? JSON.stringify(n.message) : String(n.message || '')}
+                    </p>
                     <span className="text-[10px] text-slate-400 mt-1 block">
                       {new Date(n.createdAt).toLocaleString()}
                     </span>

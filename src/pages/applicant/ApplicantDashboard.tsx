@@ -216,10 +216,12 @@ export const ApplicantDashboard: React.FC = () => {
                       {alert.severity}
                     </span>
                   </div>
-                  <div className="text-slate-600 text-[11px] leading-relaxed">{alert.message}</div>
+                  <div className="text-slate-600 text-[11px] leading-relaxed">
+                    {typeof alert.message === 'object' ? JSON.stringify(alert.message) : String(alert.message || '')}
+                  </div>
                   {alert.actionRequired && (
                     <div className="text-teal-900 font-semibold text-[11px] pt-1">
-                      Action: {alert.actionRequired}
+                      Action: {typeof alert.actionRequired === 'object' ? JSON.stringify(alert.actionRequired) : String(alert.actionRequired)}
                     </div>
                   )}
                 </div>

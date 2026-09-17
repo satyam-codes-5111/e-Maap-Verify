@@ -23,6 +23,20 @@ export const AdminAuditLogsPage: React.FC = () => {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const formatLogContent = (content: any): string => {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    if (typeof content === 'number' || typeof content === 'boolean') return String(content);
+    if (typeof content === 'object') {
+      try {
+        return JSON.stringify(content);
+      } catch {
+        return '[Complex Object]';
+      }
+    }
+    return String(content);
+  };
+
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -115,7 +129,9 @@ export const AdminAuditLogsPage: React.FC = () => {
                     </span>
                     <span className="font-bold text-[#172B4D]">{log.actor || 'System'}</span>
                   </div>
-                  <p className="text-[#5B6B7A] text-xs leading-relaxed">{log.details || log.description}</p>
+                  <p className="text-[#5B6B7A] text-xs leading-relaxed">
+                    {formatLogContent(log.details || log.description)}
+                  </p>
                 </div>
                 <div className="text-right shrink-0 space-y-0.5 font-mono text-[11px] text-[#5B6B7A]">
                   <div>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Recent'}</div>

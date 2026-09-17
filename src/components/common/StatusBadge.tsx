@@ -11,19 +11,20 @@ import {
 } from 'lucide-react';
 
 interface StatusBadgeProps {
-  status: string | undefined;
+  status: any;
   size?: 'sm' | 'md';
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' }) => {
-  const normalized = (status || 'UNKNOWN').toUpperCase().replace(/\s+/g, '_');
+  const statusStr = typeof status === 'string' ? status : (status ? String(status) : 'UNKNOWN');
+  const normalized = statusStr.toUpperCase().replace(/\s+/g, '_');
 
   let config = {
     bg: 'bg-slate-100',
     text: 'text-slate-700',
     border: 'border-slate-200',
     icon: Clock,
-    label: status || 'Unknown',
+    label: typeof status === 'string' ? status : (status ? String(status) : 'Unknown'),
   };
 
   switch (normalized) {

@@ -22,7 +22,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         <AlertCircle className="w-6 h-6" />
       </div>
       <h4 className="text-sm font-bold text-rose-900 mb-1">{title}</h4>
-      <p className="text-xs text-rose-700 max-w-md mb-4 leading-relaxed">{message}</p>
+      <p className="text-xs text-rose-700 max-w-md mb-4 leading-relaxed">
+        {typeof message === 'object' && message !== null ? JSON.stringify(message) : String(message || '')}
+      </p>
       {onRetry && (
         <button
           type="button"

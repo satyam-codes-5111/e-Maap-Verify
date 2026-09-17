@@ -39,8 +39,10 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
       >
         <Icon className="w-5 h-5 shrink-0 mt-0.5" />
         <div className="flex-1 text-xs">
-          {toast.title && <div className="font-bold mb-0.5">{toast.title}</div>}
-          <div className="opacity-90 leading-snug">{toast.message}</div>
+          {toast.title && <div className="font-bold mb-0.5">{typeof toast.title === 'object' ? JSON.stringify(toast.title) : String(toast.title)}</div>}
+          <div className="opacity-90 leading-snug">
+            {typeof toast.message === 'object' && toast.message !== null ? JSON.stringify(toast.message) : String(toast.message || '')}
+          </div>
         </div>
         <button
           type="button"

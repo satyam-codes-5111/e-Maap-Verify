@@ -13,6 +13,16 @@ async function startServer() {
     // 2. Start Expiry / Due-Date Background Scheduler
     startExpiryScheduler();
 
+    // Root Health Route for cloud platform health checks (Render / AWS / GCP)
+    app.get('/', (req, res) => {
+      res.status(200).json({
+        status: 'ok',
+        message: 'Legal Metrology Verification Engine API is running on Render.',
+        health: '/api/health',
+        version: '1.0.0'
+      });
+    });
+
     // 3. Start HTTP Listener
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`====================================================`);

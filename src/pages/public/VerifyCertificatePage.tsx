@@ -693,7 +693,7 @@ export const VerifyCertificatePage: React.FC = () => {
                               : 'text-amber-700'
                           }`}
                         >
-                          {message}
+                          {typeof message === 'object' && message !== null ? JSON.stringify(message) : String(message || '')}
                         </p>
                       </div>
                     </div>
@@ -1071,7 +1071,7 @@ export const VerifyCertificatePage: React.FC = () => {
 interface DetailItemProps {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: any;
   valueClass?: string;
 }
 
@@ -1081,6 +1081,7 @@ const DetailItem: React.FC<DetailItemProps> = ({
   value,
   valueClass = 'text-slate-800',
 }) => {
+  const displayValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : (value != null ? String(value) : '—');
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
@@ -1091,7 +1092,7 @@ const DetailItem: React.FC<DetailItemProps> = ({
       </div>
 
       <p className={`text-sm font-semibold break-words ${valueClass}`}>
-        {value}
+        {displayValue}
       </p>
     </div>
   );

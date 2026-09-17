@@ -371,7 +371,7 @@ export const LoginPage: React.FC = () => {
                 {serverError && (
                   <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
                     <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                    <span>{serverError}</span>
+                    <span>{typeof serverError === 'object' ? JSON.stringify(serverError) : String(serverError)}</span>
                   </div>
                 )}
 

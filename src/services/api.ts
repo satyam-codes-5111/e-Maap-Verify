@@ -1,11 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Base API configuration: always use relative '/api' on web/preview so requests route through current host
+// Base API configuration using environment variable or default relative /api
 export function getApiBaseUrl(): string {
   const envUrl = import.meta.env.VITE_API_URL;
-  // If running in browser and envUrl points to localhost while we are on a remote host (like Cloud Run), ignore localhost
+  // If running in browser and envUrl explicitly points to localhost while we are on a remote host (like Cloud Run), ignore localhost
   if (typeof window !== 'undefined') {
-    if (!envUrl || (envUrl.includes('localhost') && !window.location.hostname.includes('localhost'))) {
+    if (envUrl && envUrl.includes('localhost') && !window.location.hostname.includes('localhost')) {
       return '/api';
     }
   }
@@ -62,15 +62,30 @@ api.interceptors.response.use(
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    return (
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      'An unexpected server error occurred.'
-    );
+    const data = error.response?.data;
+    const candidate = data?.message || data?.error || error.message;
+    if (typeof candidate === 'string') return candidate;
+    if (candidate && typeof candidate === 'object') {
+      try {
+        return candidate.message || candidate.detail || JSON.stringify(candidate);
+      } catch {
+        return 'An unexpected server error occurred.';
+      }
+    }
+    return candidate ? String(candidate) : 'An unexpected server error occurred.';
   }
   if (error instanceof Error) {
     return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error && typeof error === 'object') {
+    try {
+      return (error as any).message || JSON.stringify(error);
+    } catch {
+      return 'An unexpected error occurred.';
+    }
   }
   return 'An unexpected error occurred.';
 }

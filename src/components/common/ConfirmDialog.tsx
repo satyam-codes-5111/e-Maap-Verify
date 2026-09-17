@@ -67,7 +67,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         >
           {isDanger ? <AlertTriangle className="w-5 h-5" /> : <Info className="w-5 h-5" />}
         </div>
-        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pt-1">{message}</p>
+        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pt-1">
+          {typeof message === 'object' && message !== null ? JSON.stringify(message) : String(message || '')}
+        </p>
       </div>
     </Modal>
   );
