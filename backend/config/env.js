@@ -9,12 +9,12 @@ if (!process.env.JWT_SECRET) {
   throw new Error('[FATAL CONFIG ERROR] Missing required environment variable: JWT_SECRET must be set in environment.');
 }
 
-const BACKEND_PORT = 3000;
+const BACKEND_PORT = parseInt(process.env.PORT, 10) || 3000;
 
-// Resolve SERVER_URL to match backend port 3000
-const resolvedServerUrl = (process.env.SERVER_URL && process.env.SERVER_URL.includes(':3000'))
+// Resolve SERVER_URL to match backend port
+const resolvedServerUrl = (process.env.SERVER_URL && process.env.SERVER_URL.includes(`:${BACKEND_PORT}`))
   ? process.env.SERVER_URL
-  : (process.env.APP_URL || `http://localhost:${BACKEND_PORT}`);
+  : (process.env.SERVER_URL || process.env.APP_URL || `http://localhost:${BACKEND_PORT}`);
 
 export const ENV = {
   NODE_ENV: process.env.NODE_ENV || 'development',

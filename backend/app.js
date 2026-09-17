@@ -191,6 +191,16 @@ app.route('/api/health')
     next(ApiError.methodNotAllowed(`HTTP method ${req.method} is not allowed on /api/health. Supported methods: GET.`));
   });
 
+// Root Health Route for cloud platform health checks (Render / AWS / GCP)
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Legal Metrology Verification Engine API is running.',
+    health: '/api/health',
+    version: '1.0.0'
+  });
+});
+
 import { getAuditLogs } from './controllers/reportController.js';
 import { authorize } from './middleware/roleMiddleware.js';
 import { USER_ROLES } from './config/constants.js';

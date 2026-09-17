@@ -1,0 +1,32 @@
+{
+  "name": "e-maap-verify-backend",
+  "version": "1.0.0",
+  "description": "DoCA Legal Metrology Online Verification & Inspection Engine Backend",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "seed:admin": "node scripts/createAdmin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "hpp": "^0.2.3",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.9.5",
+    "multer": "^2.3.0",
+    "nodemailer": "^10.0.0",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4",
+    "xss": "^1.0.15",
+    "zod": "^4.5.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
