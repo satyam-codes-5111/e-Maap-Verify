@@ -34,9 +34,18 @@ async function startServer() {
     });
 
     // 3. Connect to MongoDB database (asynchronous, non-blocking)
-    connectDB().catch((err: any) => {
-      console.error('[DATABASE WARNING] Initial MongoDB connection error:', err?.message);
-    });
+    connectDB()
+      .then(async () => {
+        try {
+          const { seedAdminUser } = await import('./backend/services/adminSeedService.js');
+          await seedAdminUser();
+        } catch (seedErr: any) {
+          console.error('[ADMIN SEED WARNING]', seedErr?.message);
+        }
+      })
+      .catch((err: any) => {
+        console.error('[DATABASE WARNING] Initial MongoDB connection error:', err?.message);
+      });
   } catch (error: any) {
     console.error('Server startup failed:', error?.message);
     process.exit(1);

@@ -1,6 +1,7 @@
 import app from './app.js';
 import { connectDB } from './config/db.js';
 import { ENV } from './config/env.js';
+import { seedAdminUser } from './services/adminSeedService.js';
 import { startExpiryScheduler, stopExpiryScheduler } from './jobs/expiryScheduler.js';
 
 const PORT = parseInt(ENV.PORT, 10) || 3000;
@@ -10,7 +11,10 @@ async function startServer() {
     // 1. Establish Database Connection
     await connectDB();
 
-    // 2. Start Expiry / Due-Date Background Scheduler
+    // 2. Seed Initial Super Admin (Idempotent, if configured)
+    await seedAdminUser();
+
+    // 3. Start Expiry / Due-Date Background Scheduler
     startExpiryScheduler();
 
     // Root Health Route for cloud platform health checks (Render / AWS / GCP)
