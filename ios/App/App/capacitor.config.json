@@ -1,0 +1,14 @@
+{
+	"appId": "gov.in.doca.emaap",
+	"appName": "e-Maap Verify",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"packageClassList": [
+		"BarcodeScannerPlugin",
+		"CAPCameraPlugin",
+		"GeolocationPlugin",
+		"CAPNetworkPlugin"
+	]
+}

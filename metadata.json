@@ -1,0 +1,6 @@
+{
+  "name": "Legal Metrology Verification System",
+  "description": "Online Verification System for Weighing and Measuring Instruments - Department of Consumer Affairs (DoCA), Ministry of Consumer Affairs, Food & Public Distribution",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

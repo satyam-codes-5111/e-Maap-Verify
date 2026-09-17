@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gov-navy: #123B6D;
+  --color-gov-navy-dark: #0B2F57;
+  --color-gov-blue: #07549A;
+  --color-gov-saffron: #FF9933;
+  --color-gov-green: #138808;
+  --color-gov-bg: #F5F8FC;
+  --color-gov-border: #D9E2EC;
+  --color-gov-text: #172B4D;
+  --color-gov-muted: #5B6B7A;
+}
+
+/* Mobile notch and home indicator safe area support */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+body {
+  padding-top: var(--sat);
+  padding-right: var(--sar);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+}
