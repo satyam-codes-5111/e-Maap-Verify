@@ -38,6 +38,7 @@ export function buildPaginationResponse(data, total, page, limit, customKey = nu
     applications: data,
     schedules: data,
     certificates: data,
+    logs: data,
     data: data,
     pagination: {
       page,

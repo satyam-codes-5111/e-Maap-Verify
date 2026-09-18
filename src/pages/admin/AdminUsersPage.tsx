@@ -82,18 +82,63 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanName = formData.name.trim();
+    const cleanEmail = formData.email.trim().toLowerCase();
+    const cleanPhone = formData.phone.trim();
+    const cleanPassword = formData.password.trim() || 'Officer@DoCA2026!';
+
+    if (!cleanName || cleanName.length < 2) {
+      setToast({
+        id: String(Date.now()),
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Name must be at least 2 characters long.',
+      });
+      return;
+    }
+
+    if (!cleanEmail || !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(cleanEmail)) {
+      setToast({
+        id: String(Date.now()),
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Please enter a valid official email address.',
+      });
+      return;
+    }
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setToast({
+        id: String(Date.now()),
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Mobile phone number must be at least 10 digits.',
+      });
+      return;
+    }
+
+    if (cleanPassword.length < 8) {
+      setToast({
+        id: String(Date.now()),
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Password must be at least 8 characters long.',
+      });
+      return;
+    }
+
     setCreating(true);
     try {
       const res = await userApi.createUser({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password || 'Officer@DoCA2026!',
+        name: cleanName,
+        email: cleanEmail,
+        password: cleanPassword,
         role: formData.role,
-        phone: formData.phone,
-        designation: formData.designation,
+        phone: cleanPhone,
+        designation: formData.designation.trim() || undefined,
         jurisdiction: {
-          state: formData.state,
-          district: formData.district,
+          state: formData.state.trim() || 'Maharashtra',
+          district: formData.district.trim() || 'Mumbai Suburbs',
         },
       });
       if (res.success) {
@@ -101,7 +146,7 @@ export const AdminUsersPage: React.FC = () => {
           id: String(Date.now()),
           type: 'success',
           title: 'Official Account Created',
-          message: `User account provisioned for ${formData.name} as ${formData.role}.`,
+          message: `User account provisioned for ${cleanName} as ${formData.role}.`,
         });
         setShowCreateModal(false);
         setFormData({
@@ -114,7 +159,14 @@ export const AdminUsersPage: React.FC = () => {
           state: 'Maharashtra',
           district: 'Mumbai Suburbs',
         });
-        fetchUsers();
+        await fetchUsers();
+      } else {
+        setToast({
+          id: String(Date.now()),
+          type: 'error',
+          title: 'Creation Failed',
+          message: res.message || 'Unable to provision user account.',
+        });
       }
     } catch (err: unknown) {
       setToast({
@@ -285,7 +337,7 @@ export const AdminUsersPage: React.FC = () => {
         columns={columns}
         data={users}
         loading={loading}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => item._id || (item as any).id || String(Math.random())}
         emptyTitle="No Users Found"
         emptyDescription="No registered users matching this query."
         pagination={{
@@ -309,15 +361,15 @@ export const AdminUsersPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-[#5B6B7A] hover:bg-[#F5F8FC] border border-[#D9E2EC] rounded-md transition"
+                className="px-3.5 py-1.5 text-xs font-semibold text-[#5B6B7A] hover:bg-[#F5F8FC] border border-[#D9E2EC] rounded-md transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleCreateUser}
-                disabled={creating || !formData.name || !formData.email}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0B2F57] rounded-md shadow-2xs flex items-center gap-1.5 disabled:opacity-50 transition"
+                disabled={creating || !formData.name.trim() || !formData.email.trim() || !formData.phone.trim()}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0B2F57] rounded-md shadow-2xs flex items-center gap-1.5 disabled:opacity-50 transition cursor-pointer"
               >
                 {creating && (
                   <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -359,19 +411,33 @@ export const AdminUsersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-[#172B4D] mb-1">
-                  Initial Password
+                  Mobile / Phone Number *
                 </label>
                 <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Leave empty for default"
+                  type="tel"
+                  required
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="e.g. 9876543210 (min 10 digits)"
                   className="w-full px-3 py-2 text-xs bg-white border border-[#D9E2EC] rounded-md focus:ring-2 focus:ring-[#07549A]/20 focus:border-[#07549A] text-[#172B4D]"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-[#172B4D] mb-1">
+                  Initial Password
+                </label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Defaults to Officer@DoCA2026!"
+                  className="w-full px-3 py-2 text-xs bg-white border border-[#D9E2EC] rounded-md focus:ring-2 focus:ring-[#07549A]/20 focus:border-[#07549A] text-[#172B4D]"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-[#172B4D] mb-1">
                   Role Assignment *
@@ -389,7 +455,9 @@ export const AdminUsersPage: React.FC = () => {
                   <option value="BUSINESS_USER">Business Trader / Stakeholder</option>
                 </select>
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-[#172B4D] mb-1">
                   Official Designation
@@ -402,9 +470,7 @@ export const AdminUsersPage: React.FC = () => {
                   className="w-full px-3 py-2 text-xs bg-white border border-[#D9E2EC] rounded-md focus:ring-2 focus:ring-[#07549A]/20 focus:border-[#07549A] text-[#172B4D]"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-[#172B4D] mb-1">
                   Jurisdiction State
@@ -417,19 +483,19 @@ export const AdminUsersPage: React.FC = () => {
                   className="w-full px-3 py-2 text-xs bg-white border border-[#D9E2EC] rounded-md focus:ring-2 focus:ring-[#07549A]/20 focus:border-[#07549A] text-[#172B4D]"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#172B4D] mb-1">
-                  Jurisdiction District / Beat
-                </label>
-                <input
-                  type="text"
-                  value={formData.district}
-                  onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                  placeholder="Mumbai Central"
-                  className="w-full px-3 py-2 text-xs bg-white border border-[#D9E2EC] rounded-md focus:ring-2 focus:ring-[#07549A]/20 focus:border-[#07549A] text-[#172B4D]"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-[#172B4D] mb-1">
+                Jurisdiction District / Beat
+              </label>
+              <input
+                type="text"
+                value={formData.district}
+                onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                placeholder="Mumbai Central"
+                className="w-full px-3 py-2 text-xs bg-white border border-[#D9E2EC] rounded-md focus:ring-2 focus:ring-[#07549A]/20 focus:border-[#07549A] text-[#172B4D]"
+              />
             </div>
           </div>
         </Modal>

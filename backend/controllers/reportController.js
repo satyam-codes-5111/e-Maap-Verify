@@ -8,6 +8,7 @@ import { AuditLog } from '../models/AuditLog.js';
 import { ApiResponse } from '../utils/response.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getPaginationParams, buildPaginationResponse } from '../utils/pagination.js';
+import { escapeRegex } from '../utils/securityUtils.js';
 import { USER_ROLES, INSTRUMENT_STATUSES } from '../config/constants.js';
 
 /**
@@ -523,7 +524,18 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     filter.entity = req.query.entity;
   }
   if (req.query.userEmail) {
-    filter.userEmail = new RegExp(req.query.userEmail, 'i');
+    filter.userEmail = new RegExp(escapeRegex(req.query.userEmail), 'i');
+  }
+  if (req.query.search) {
+    const safeSearch = escapeRegex(req.query.search);
+    filter.$or = [
+      { action: { $regex: safeSearch, $options: 'i' } },
+      { entity: { $regex: safeSearch, $options: 'i' } },
+      { userEmail: { $regex: safeSearch, $options: 'i' } },
+      { userRole: { $regex: safeSearch, $options: 'i' } },
+      { ipAddress: { $regex: safeSearch, $options: 'i' } },
+      { entityId: { $regex: safeSearch, $options: 'i' } },
+    ];
   }
   if (req.query.startDate && req.query.endDate) {
     filter.timestamp = {
@@ -533,13 +545,17 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
   }
 
   const [logs, total] = await Promise.all([
-    AuditLog.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit),
+    AuditLog.find(filter)
+      .populate('user', 'name email role designation')
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit),
     AuditLog.countDocuments(filter),
   ]);
 
   return ApiResponse.success(
     res,
-    buildPaginationResponse(logs, total, page, limit),
+    buildPaginationResponse(logs, total, page, limit, 'logs'),
     'Audit logs retrieved successfully'
   );
 });

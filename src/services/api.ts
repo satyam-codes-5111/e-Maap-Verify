@@ -63,6 +63,18 @@ api.interceptors.response.use(
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
+    if (data?.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+      const details = data.errors
+        .map((e: any) => {
+          if (typeof e === 'string') return e;
+          if (e && typeof e === 'object') {
+            return e.message ? `${e.field ? e.field + ': ' : ''}${e.message}` : JSON.stringify(e);
+          }
+          return String(e);
+        })
+        .join('; ');
+      return details ? `${data.message ? data.message + ' - ' : ''}${details}` : (data.message || 'Validation error');
+    }
     const candidate = data?.message || data?.error || error.message;
     if (typeof candidate === 'string') return candidate;
     if (candidate && typeof candidate === 'object') {
