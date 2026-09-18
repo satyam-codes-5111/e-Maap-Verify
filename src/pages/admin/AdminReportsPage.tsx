@@ -221,7 +221,7 @@ export const AdminReportsPage: React.FC = () => {
             />
             <StatCard
               title="Treasury Compliance Amount"
-              value={`₹${(data?.totalRevenue ?? 184500).toLocaleString()}`}
+              value={`₹${(data?.totalRevenue ?? 0).toLocaleString()}`}
               description="Legal Metrology fee deposited"
               icon={IndianRupee}
               variant="emerald"
@@ -262,56 +262,40 @@ export const AdminReportsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#D9E2EC]">
-                  {(data?.records || data?.logs || data?.items || [
-                    {
-                      id: 'REP-2026-001',
-                      ref: 'APP-2026-MH-0091',
-                      actor: 'Hindustan Weighing Systems',
-                      category: 'Non-Automatic Weighing Instrument',
-                      location: 'Mumbai Suburbs, MH',
-                      status: 'VERIFIED',
-                      date: '2026-09-08',
-                    },
-                    {
-                      id: 'REP-2026-002',
-                      ref: 'APP-2026-DL-0042',
-                      actor: 'Apex Scales & Balances',
-                      category: 'Automatic Gravimetric Filling',
-                      location: 'New Delhi Central, DL',
-                      status: 'APPROVED',
-                      date: '2026-09-07',
-                    },
-                    {
-                      id: 'REP-2026-003',
-                      ref: 'FEE-2026-TN-8812',
-                      actor: 'Southern Petroleum Terminal',
-                      category: 'Fuel Dispensing Unit',
-                      location: 'Chennai Harbour, TN',
-                      status: 'PAID',
-                      date: '2026-09-06',
-                    },
-                  ]).map((row: any, i: number) => (
-                    <tr key={row._id || row.id || i} className="hover:bg-[#F8FAFC] transition">
-                      <td className="py-3 px-4 font-mono font-bold text-[#123B6D]">
-                        {row.applicationNumber || row.certificateNumber || row.ref || row._id || `REC-${i + 1}`}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-[#172B4D]">
-                        {row.stakeholder?.businessName || row.businessName || row.userName || row.actor || 'Authorized Establishment'}
-                      </td>
-                      <td className="py-3 px-4 text-[#5B6B7A]">
-                        {row.category || row.instrument?.category || row.action || 'Statutory Verification'}
-                      </td>
-                      <td className="py-3 px-4 text-[#5B6B7A]">
-                        {row.location || row.stakeholder?.district || 'Jurisdictional Beat'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={row.status || row.verdict || 'COMPLIANT'} size="sm" />
-                      </td>
-                      <td className="py-3 px-4 text-right text-[#5B6B7A] font-mono text-[11px]">
-                        {row.date || (row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '2026-09-08')}
-                      </td>
-                    </tr>
-                  ))}
+                  {(() => {
+                    const reportRecords = data?.records || data?.logs || data?.items || [];
+                    if (reportRecords.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-xs text-[#5B6B7A]">
+                            No statutory records found for the selected timeframe.
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return reportRecords.map((row: any, i: number) => (
+                      <tr key={row._id || row.id || i} className="hover:bg-[#F8FAFC] transition">
+                        <td className="py-3 px-4 font-mono font-bold text-[#123B6D]">
+                          {row.applicationNumber || row.certificateNumber || row.ref || row._id || `REC-${i + 1}`}
+                        </td>
+                        <td className="py-3 px-4 font-medium text-[#172B4D]">
+                          {row.stakeholder?.businessName || row.businessName || row.userName || row.actor || 'Authorized Establishment'}
+                        </td>
+                        <td className="py-3 px-4 text-[#5B6B7A]">
+                          {row.category || row.instrument?.category || row.action || 'Statutory Verification'}
+                        </td>
+                        <td className="py-3 px-4 text-[#5B6B7A]">
+                          {row.location || row.stakeholder?.district || 'Jurisdictional Beat'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <StatusBadge status={row.status || row.verdict || 'COMPLIANT'} size="sm" />
+                        </td>
+                        <td className="py-3 px-4 text-right text-[#5B6B7A] font-mono text-[11px]">
+                          {row.date || (row.createdAt ? new Date(row.createdAt).toLocaleDateString() : 'N/A')}
+                        </td>
+                      </tr>
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>

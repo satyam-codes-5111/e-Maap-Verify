@@ -140,8 +140,8 @@ export function detectFileTypeFromBuffer(buffer) {
     return { mime: 'image/png', ext: '.png', isDangerous: false, type: 'IMAGE' };
   }
 
-  // Support for regression test mock PNG stream (Phase 7 test mock)
-  if (buffer.subarray(0, 23).toString('utf8') === 'PNG_TEST_BINARY_STREAM') {
+  // Support for regression test mock PNG stream (Phase 7 test mock in dev/test only)
+  if (process.env.NODE_ENV !== 'production' && buffer.subarray(0, 23).toString('utf8') === 'PNG_TEST_BINARY_STREAM') {
     return { mime: 'image/png', ext: '.png', isDangerous: false, type: 'IMAGE' };
   }
 

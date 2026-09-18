@@ -89,28 +89,50 @@ export const AdminAnalyticsPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Overall Compliance Rate"
-          value={`${metrics.complianceRate ?? 98.4}%`}
+          value={
+            metrics.complianceRate != null
+              ? `${metrics.complianceRate}%`
+              : data?.kpis?.totalInstruments && data.kpis.totalInstruments > 0
+                ? `${((data.kpis.verifiedInstruments / data.kpis.totalInstruments) * 100).toFixed(1)}%`
+                : '0%'
+          }
           description="Percentage of instruments meeting MPE tolerances"
           icon={Percent}
           variant="emerald"
         />
         <StatCard
           title="Average Turnaround"
-          value={`${metrics.averageTurnaroundDays ?? 3.2} Days`}
+          value={
+            metrics.averageTurnaroundDays != null
+              ? `${metrics.averageTurnaroundDays} Days`
+              : '0 Days'
+          }
           description="From application submission to certificate issue"
           icon={Clock}
           variant="blue"
         />
         <StatCard
           title="Rejection Rate"
-          value={`${metrics.rejectionRate ?? 1.6}%`}
+          value={
+            metrics.rejectionRate != null
+              ? `${metrics.rejectionRate}%`
+              : data?.kpis?.completedInspections && data.kpis.completedInspections > 0
+                ? `${((data.kpis.rejectedOrFailedInspections / data.kpis.completedInspections) * 100).toFixed(1)}%`
+                : '0%'
+          }
           description="Defective instruments seized or repair orders issued"
           icon={AlertOctagon}
           variant="rose"
         />
         <StatCard
           title="Beat Coverage Ratio"
-          value={`${metrics.coverageRatio ?? 94.2}%`}
+          value={
+            metrics.coverageRatio != null
+              ? `${metrics.coverageRatio}%`
+              : data?.kpis?.totalApplications && data.kpis.totalApplications > 0
+                ? `${Math.min(100, Number((((data.kpis.approvedApplications + (data.kpis.verifiedInstruments || 0)) / data.kpis.totalApplications) * 100).toFixed(1)))}%`
+                : '0%'
+          }
           description="Active commercial premises inspected annually"
           icon={ShieldCheck}
           variant="indigo"
@@ -127,37 +149,35 @@ export const AdminAnalyticsPage: React.FC = () => {
           </div>
 
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={
-                  complianceByCategory.length > 0
-                    ? complianceByCategory
-                    : [
-                        { category: 'NAWI', passRate: 97 },
-                        { category: 'AWI', passRate: 99 },
-                        { category: 'Measuring', passRate: 98 },
-                        { category: 'Flow Meters', passRate: 95 },
-                        { category: 'Tanks', passRate: 100 },
-                      ]
-                }
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="category" tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
-                <YAxis domain={[80, 100]} tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
-                <Tooltip
-                  formatter={(val: any) => [`${val}%`, 'Pass Rate']}
-                  contentStyle={{
-                    backgroundColor: '#0B2F57',
-                    borderColor: '#123B6D',
-                    borderRadius: '6px',
-                    color: '#fff',
-                    fontSize: '12px',
-                  }}
-                />
-                <Bar dataKey="passRate" fill="#07549A" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {complianceByCategory.length === 0 ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-xs text-[#5B6B7A] bg-[#F8FAFC] rounded-lg border border-dashed border-[#D9E2EC] p-4 text-center">
+                <Percent className="w-8 h-8 text-[#5B6B7A]/40 mb-2" />
+                <p className="font-semibold text-sm text-[#172B4D]">No Category Compliance Data</p>
+                <p className="text-xs text-[#5B6B7A] mt-1 max-w-xs">Pass rates will be displayed here once statutory verification inspections are conducted.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={complianceByCategory}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="category" tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
+                  <Tooltip
+                    formatter={(val: any) => [`${val}%`, 'Pass Rate']}
+                    contentStyle={{
+                      backgroundColor: '#0B2F57',
+                      borderColor: '#123B6D',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Bar dataKey="passRate" fill="#07549A" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -169,36 +189,35 @@ export const AdminAnalyticsPage: React.FC = () => {
           </div>
 
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={
-                  officerWorkloads.length > 0
-                    ? officerWorkloads
-                    : [
-                        { officer: 'Beat 1 (Mumbai)', count: 42 },
-                        { officer: 'Beat 2 (Thane)', count: 35 },
-                        { officer: 'Beat 3 (Pune)', count: 48 },
-                        { officer: 'Beat 4 (Nagpur)', count: 29 },
-                      ]
-                }
-                layout="vertical"
-                margin={{ top: 10, right: 20, left: 30, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
-                <YAxis type="category" dataKey="officer" tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0B2F57',
-                    borderColor: '#123B6D',
-                    borderRadius: '6px',
-                    color: '#fff',
-                    fontSize: '12px',
-                  }}
-                />
-                <Bar dataKey="count" fill="#123B6D" radius={[0, 4, 4, 0]} name="Completed Inspections" />
-              </BarChart>
-            </ResponsiveContainer>
+            {officerWorkloads.length === 0 ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-xs text-[#5B6B7A] bg-[#F8FAFC] rounded-lg border border-dashed border-[#D9E2EC] p-4 text-center">
+                <ShieldCheck className="w-8 h-8 text-[#5B6B7A]/40 mb-2" />
+                <p className="font-semibold text-sm text-[#172B4D]">No Officer Workload Data</p>
+                <p className="text-xs text-[#5B6B7A] mt-1 max-w-xs">Field officer performance will appear here once inspections are assigned and logged.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={officerWorkloads}
+                  layout="vertical"
+                  margin={{ top: 10, right: 20, left: 30, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
+                  <YAxis type="category" dataKey="officer" tick={{ fontSize: 11, fill: '#5B6B7A' }} stroke="#D9E2EC" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0B2F57',
+                      borderColor: '#123B6D',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Bar dataKey="count" fill="#123B6D" radius={[0, 4, 4, 0]} name="Completed Inspections" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

@@ -152,7 +152,7 @@ export const OfficerDashboard: React.FC = () => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-xs text-slate-900">
-                        {sch.timeSlot || '09:00 AM - 12:00 PM'}
+                        {sch.timeSlot || 'Slot not specified'}
                       </span>
                       <StatusBadge status={sch.status} size="sm" />
                     </div>

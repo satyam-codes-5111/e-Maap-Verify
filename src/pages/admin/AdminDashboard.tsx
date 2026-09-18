@@ -355,31 +355,39 @@ export const AdminDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#D9E2EC]">
-              {recentApplications.map((app: any) => (
-                <tr key={app._id} className="hover:bg-[#F8FAFC] transition">
-                  <td className="py-2.5 px-3 font-bold text-[#123B6D] font-mono">{app.applicationNumber}</td>
-                  <td className="py-2.5 px-3 text-[#172B4D] font-medium">
-                    {app.stakeholder?.businessName || 'Business Establishment'}
-                  </td>
-                  <td className="py-2.5 px-3 text-[#5B6B7A]">
-                    {app.instrument?.instrumentName || app.instrument?.category}
-                  </td>
-                  <td className="py-2.5 px-3 text-[#5B6B7A]">
-                    {app.verificationLocation?.district || app.stakeholder?.district || 'District Beat'}
-                  </td>
-                  <td className="py-2.5 px-3">
-                    <StatusBadge status={app.currentStatus || app.status} size="sm" />
-                  </td>
-                  <td className="py-2.5 px-3 text-right">
-                    <Link
-                      to={`/admin/applications/${app._id}`}
-                      className="px-2.5 py-1 text-[11px] font-bold text-[#123B6D] bg-[#E8F1FA] hover:bg-[#d8e8f8] border border-[#07549A]/30 rounded transition"
-                    >
-                      Inspect
-                    </Link>
+              {recentApplications.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-xs text-[#5B6B7A]">
+                    No recent applications recorded in the database.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recentApplications.map((app: any) => (
+                  <tr key={app._id} className="hover:bg-[#F8FAFC] transition">
+                    <td className="py-2.5 px-3 font-bold text-[#123B6D] font-mono">{app.applicationNumber}</td>
+                    <td className="py-2.5 px-3 text-[#172B4D] font-medium">
+                      {app.stakeholder?.businessName || 'Business Establishment'}
+                    </td>
+                    <td className="py-2.5 px-3 text-[#5B6B7A]">
+                      {app.instrument?.instrumentName || app.instrument?.category}
+                    </td>
+                    <td className="py-2.5 px-3 text-[#5B6B7A]">
+                      {app.verificationLocation?.district || app.stakeholder?.district || 'District Beat'}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <StatusBadge status={app.currentStatus || app.status} size="sm" />
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <Link
+                        to={`/admin/applications/${app._id}`}
+                        className="px-2.5 py-1 text-[11px] font-bold text-[#123B6D] bg-[#E8F1FA] hover:bg-[#d8e8f8] border border-[#07549A]/30 rounded transition"
+                      >
+                        Inspect
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -13,7 +13,7 @@ export async function seedAdminUser() {
     const adminEmail = (ENV.ADMIN_INITIAL_EMAIL || '').trim().toLowerCase();
     const adminPassword = (ENV.ADMIN_INITIAL_PASSWORD || '').trim();
     const adminName = (ENV.ADMIN_INITIAL_NAME || '').trim() || 'Super Administrator';
-    const adminPhone = (ENV.ADMIN_INITIAL_PHONE || '').trim() || '9876543210';
+    const adminPhone = (ENV.ADMIN_INITIAL_PHONE || '').trim();
 
     if (!adminEmail || !adminPassword) {
       console.log('[ADMIN SEED] Admin seed skipped: credentials not configured.');
@@ -32,11 +32,10 @@ export async function seedAdminUser() {
 
     // Create exactly one SUPER_ADMIN using the User model
     // Note: Password will be hashed automatically by the User pre-save bcrypt hook
-    const admin = new User({
+    const adminData = {
       name: adminName,
       email: adminEmail,
       password: adminPassword,
-      phone: adminPhone,
       role: USER_ROLES.SUPER_ADMIN,
       designation: 'Director General of Legal Metrology',
       jurisdiction: {
@@ -46,7 +45,13 @@ export async function seedAdminUser() {
       },
       organization: 'Department of Consumer Affairs (DoCA)',
       isActive: true,
-    });
+    };
+
+    if (adminPhone) {
+      adminData.phone = adminPhone;
+    }
+
+    const admin = new User(adminData);
 
     await admin.save();
 

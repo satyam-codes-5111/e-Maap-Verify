@@ -9,6 +9,7 @@
     "start": "node dist/server.cjs",
     "server": "node backend/server.js",
     "create-admin": "node backend/scripts/createAdmin.js",
+    "reset-admin-password": "node backend/scripts/resetSuperAdminPassword.js",
     "test:phase3": "node backend/scripts/testPhase3.js",
     "test:phase4": "node backend/scripts/testPhase4.js",
     "test:phase5": "node backend/scripts/testPhase5.js",

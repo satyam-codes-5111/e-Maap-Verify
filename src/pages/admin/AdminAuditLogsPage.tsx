@@ -94,52 +94,35 @@ export const AdminAuditLogsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="divide-y divide-[#D9E2EC] text-xs">
-            {(logs.length > 0 ? logs : [
-              {
-                id: 'AUD-001',
-                action: 'CERTIFICATE_ISSUED',
-                actor: 'R. K. Sharma (LMO)',
-                details: 'Issued statutory certificate CERT-MH-2026-00812 with tamper seal SEAL-9901.',
-                ipAddress: '10.0.4.12',
-                timestamp: new Date().toISOString(),
-              },
-              {
-                id: 'AUD-002',
-                action: 'KYC_VERIFICATION_APPROVED',
-                actor: 'Super Administrator',
-                details: 'Approved Trade License and GSTIN credentials for Apex Weighing Systems.',
-                ipAddress: '10.0.1.5',
-                timestamp: new Date(Date.now() - 3600000).toISOString(),
-              },
-              {
-                id: 'AUD-003',
-                action: 'OFFICER_BEAT_ALLOTMENT',
-                actor: 'Super Administrator',
-                details: 'Allotted Application APP-2026-0042 to LMO Beat 3 (Pune District).',
-                ipAddress: '10.0.1.5',
-                timestamp: new Date(Date.now() - 7200000).toISOString(),
-              },
-            ]).map((log: any, i: number) => (
-              <div key={log.id || i} className="p-4 hover:bg-[#F8FAFC] transition flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#E8F1FA] text-[#123B6D] border border-[#07549A]/30">
-                      {log.action?.replace(/_/g, ' ') || 'SYSTEM ACTION'}
-                    </span>
-                    <span className="font-bold text-[#172B4D]">{log.actor || 'System'}</span>
+          {logs.length === 0 ? (
+            <div className="py-16 text-center text-xs text-[#5B6B7A] space-y-2">
+              <Lock className="w-8 h-8 text-[#5B6B7A]/40 mx-auto" />
+              <p className="font-semibold text-sm text-[#172B4D]">No audit log records found</p>
+              <p className="text-[#5B6B7A] max-w-sm mx-auto">Security events and regulatory actions will appear here as transactions occur in the system.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#D9E2EC] text-xs">
+              {logs.map((log: any, i: number) => (
+                <div key={log._id || log.id || i} className="p-4 hover:bg-[#F8FAFC] transition flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#E8F1FA] text-[#123B6D] border border-[#07549A]/30">
+                        {log.action?.replace(/_/g, ' ') || 'SYSTEM ACTION'}
+                      </span>
+                      <span className="font-bold text-[#172B4D]">{log.actor || log.performedBy?.name || 'System'}</span>
+                    </div>
+                    <p className="text-[#5B6B7A] text-xs leading-relaxed">
+                      {formatLogContent(log.details || log.description)}
+                    </p>
                   </div>
-                  <p className="text-[#5B6B7A] text-xs leading-relaxed">
-                    {formatLogContent(log.details || log.description)}
-                  </p>
+                  <div className="text-right shrink-0 space-y-0.5 font-mono text-[11px] text-[#5B6B7A]">
+                    <div>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Recent'}</div>
+                    <div className="text-[10px] text-[#5B6B7A]/70">{log.ipAddress || ''}</div>
+                  </div>
                 </div>
-                <div className="text-right shrink-0 space-y-0.5 font-mono text-[11px] text-[#5B6B7A]">
-                  <div>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Recent'}</div>
-                  <div className="text-[10px] text-[#5B6B7A]/70">{log.ipAddress || '127.0.0.1'}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
