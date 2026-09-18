@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import heroImage from './images/legal-metrology-hero.jpg';
 
 import { getErrorMessage } from '../../services/api';
+import { UserRole } from '../../types';
 import {
   Scale,
   Lock,
@@ -28,49 +29,14 @@ interface LoginFormInputs {
   password: string;
 }
 
-const ROLE_ACCOUNTS = {
-  SUPER_ADMIN: {
-    label: 'Super Admin',
-    email: 'rbac_super_admin@doca.gov.in',
-    password: 'Password123#Secure',
-  },
-  ADMIN: {
-    label: 'Admin',
-    email: 'rbac_admin@doca.gov.in',
-    password: 'Password123#Secure',
-  },
-  LEGAL_METROLOGY_OFFICER: {
-    label: 'Legal Metrology Officer',
-    email: 'rbac_lmo_a@doca.gov.in',
-    password: 'Password123#Secure',
-  },
-  FIELD_VERIFICATION_OFFICER: {
-    label: 'Field Verification Officer',
-    email: 'rbac_fvo@doca.gov.in',
-    password: 'Password123#Secure',
-  },
-  GATC_OFFICER: {
-    label: 'GATC Officer',
-    email: 'rbac_gatc@doca.gov.in',
-    password: 'Password123#Secure',
-  },
-  BUSINESS_USER: {
-    label: 'Business User',
-    email: 'rbac_trader_a@apexweigh.com',
-    password: 'Password123#Secure',
-  },
-} as const;
-
-type RoleKey = keyof typeof ROLE_ACCOUNTS;
-
 export const LoginPage: React.FC = () => {
-  const { user, login, getRoleRedirectPath } = useAuth();
+  const { user, login, logout, getRoleRedirectPath } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<RoleKey | ''>('');
+  const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -82,7 +48,6 @@ export const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormInputs>({
     defaultValues: {
@@ -91,26 +56,29 @@ export const LoginPage: React.FC = () => {
     },
   });
 
-  const handleRoleChange = (role: RoleKey | '') => {
+  const handleRoleChange = (role: UserRole | '') => {
     setSelectedRole(role);
     setServerError(null);
-
-    if (role) {
-      const account = ROLE_ACCOUNTS[role];
-      setValue('email', account.email);
-      setValue('password', account.password);
-    } else {
-      setValue('email', '');
-      setValue('password', '');
-    }
   };
 
   const onSubmit = async (data: LoginFormInputs) => {
     setServerError(null);
+
+    if (!selectedRole) {
+      setServerError('Please select your role.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const authUser = await login(data.email, data.password);
+
+      if (authUser?.role !== selectedRole) {
+        await logout();
+        setServerError('Selected role does not match this account.');
+        return;
+      }
 
       const roleDefault = getRoleRedirectPath(authUser?.role);
       const requested = (location.state as any)?.from?.pathname;
@@ -480,7 +448,7 @@ export const LoginPage: React.FC = () => {
                     <select
                       value={selectedRole}
                       onChange={(e) =>
-                        handleRoleChange(e.target.value as RoleKey | '')
+                        handleRoleChange(e.target.value as UserRole | '')
                       }
                       className="w-full h-12 px-4 border border-slate-300 rounded-lg bg-white text-sm sm:text-base text-slate-600 focus:outline-none focus:border-[#07549a] focus:ring-2 focus:ring-[#07549a]/15 cursor-pointer"
                     >
