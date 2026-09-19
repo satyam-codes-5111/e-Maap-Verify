@@ -363,3 +363,22 @@ export interface ApiResponse<T = any> {
   pagination?: PaginationMeta;
 }
 
+export interface AuditLog {
+  _id?: string;
+  id?: string;
+  user?: any;
+  userRole?: string;
+  userEmail?: string;
+  action: string;
+  entity?: string;
+  entityId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: Record<string, any>;
+  timestamp?: string | Date;
+  details?: string;
+  description?: string;
+  actor?: any;
+  performedBy?: any;
+}
+

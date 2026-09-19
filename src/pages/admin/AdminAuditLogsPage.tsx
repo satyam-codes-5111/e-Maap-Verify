@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { reportApi } from '../../services/reportApi';
 import { getErrorMessage } from '../../services/api';
+import { AuditLog } from '../../types';
 import { PageHeader } from '../../components/common/PageHeader';
 import { SearchBar } from '../../components/common/SearchBar';
 import { Toast, ToastMessage } from '../../components/common/Toast';
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react';
 
 // Robust helper to normalize and extract logs and pagination from any API response structure
-const extractAuditLogs = (response: any): { logs: any[]; pagination: any } => {
+const extractAuditLogs = (response: any): { logs: AuditLog[]; pagination: any } => {
   if (!response) {
     return { logs: [], pagination: null };
   }
@@ -68,7 +69,7 @@ const extractAuditLogs = (response: any): { logs: any[]; pagination: any } => {
 };
 
 export const AdminAuditLogsPage: React.FC = () => {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -166,6 +167,14 @@ export const AdminAuditLogsPage: React.FC = () => {
     fetchLogs();
   }, [fetchLogs]);
 
+  // Normalize logs to a guaranteed array before rendering
+  const normalizedLogs: AuditLog[] = Array.isArray(logs) ? logs : [];
+
+  // Temporary DEVELOPMENT-ONLY console diagnostics before rendering
+  console.log('[AUDIT DEBUG] logs value:', logs);
+  console.log('[AUDIT DEBUG] isArray:', Array.isArray(logs));
+  console.log('[AUDIT DEBUG] logs type:', typeof logs);
+
   return (
     <div className="space-y-6">
       <Toast toast={toast} onClose={() => setToast(null)} />
@@ -219,7 +228,7 @@ export const AdminAuditLogsPage: React.FC = () => {
             )}
           </div>
 
-          {!Array.isArray(logs) || logs.length === 0 ? (
+          {normalizedLogs.length === 0 ? (
             <div className="py-16 text-center text-xs text-[#5B6B7A] space-y-2">
               <Lock className="w-8 h-8 text-[#5B6B7A]/40 mx-auto" />
               <p className="font-semibold text-sm text-[#172B4D]">No audit log records found</p>
@@ -229,7 +238,7 @@ export const AdminAuditLogsPage: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-[#D9E2EC] text-xs">
-              {Array.isArray(logs) && logs.map((log: any, i: number) => {
+              {normalizedLogs.map((log: AuditLog, i: number) => {
                 const actor = getActorName(log);
                 const details = getLogDetails(log);
                 const role = safeString(log.userRole || (typeof log.user === 'object' ? log.user?.role : ''));
@@ -282,7 +291,7 @@ export const AdminAuditLogsPage: React.FC = () => {
           {totalPages > 1 && (
             <div className="p-3 border-t border-[#D9E2EC] bg-[#F5F8FC] flex items-center justify-between text-xs text-[#5B6B7A]">
               <span>
-                Showing {Array.isArray(logs) ? logs.length : 0} of {totalRecords} records
+                Showing {normalizedLogs.length} of {totalRecords} records
               </span>
               <div className="flex items-center gap-2">
                 <button
