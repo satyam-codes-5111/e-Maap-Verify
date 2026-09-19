@@ -145,7 +145,7 @@ export const LoginPage: React.FC = () => {
       {/* GOVERNMENT IDENTITY HEADER */}
       <div className="h-auto w-full">
       
-      <header className="bg-white border-b border-slate-200 ">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
         
         <div className="w-full max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5">
           <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-5">
