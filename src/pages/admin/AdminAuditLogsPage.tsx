@@ -19,6 +19,54 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+// Robust helper to normalize and extract logs and pagination from any API response structure
+const extractAuditLogs = (response: any): { logs: any[]; pagination: any } => {
+  if (!response) {
+    return { logs: [], pagination: null };
+  }
+
+  // 6. If the response itself is an array, use it directly
+  if (Array.isArray(response)) {
+    return { logs: response, pagination: null };
+  }
+
+  // 4. If the response contains { logs: [...], pagination: {...} }, use response.logs
+  if (Array.isArray(response.logs)) {
+    return { logs: response.logs, pagination: response.pagination || null };
+  }
+
+  // 5. If it contains { items: [...], pagination: {...} }, use response.items
+  if (Array.isArray(response.items)) {
+    return { logs: response.items, pagination: response.pagination || null };
+  }
+
+  // Standard project envelope: { statusCode, success, data: { logs / items / data, pagination } }
+  if (response.data) {
+    if (Array.isArray(response.data)) {
+      return { logs: response.data, pagination: response.pagination || null };
+    }
+    if (Array.isArray(response.data.logs)) {
+      return { logs: response.data.logs, pagination: response.data.pagination || response.pagination || null };
+    }
+    if (Array.isArray(response.data.items)) {
+      return { logs: response.data.items, pagination: response.data.pagination || response.pagination || null };
+    }
+    if (Array.isArray(response.data.data)) {
+      return { logs: response.data.data, pagination: response.data.pagination || response.pagination || null };
+    }
+    if (Array.isArray(response.data.records)) {
+      return { logs: response.data.records, pagination: response.data.pagination || response.pagination || null };
+    }
+  }
+
+  if (Array.isArray(response.records)) {
+    return { logs: response.records, pagination: response.pagination || null };
+  }
+
+  // 7. Otherwise use an empty array and show the existing empty state
+  return { logs: [], pagination: response.pagination || response.data?.pagination || null };
+};
+
 export const AdminAuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,30 +130,33 @@ export const AdminAuditLogsPage: React.FC = () => {
     setError(null);
     try {
       const res = await reportApi.getAuditLogs({ search, page, limit: 20 });
-      if (res.success && res.data) {
-        const rawList = Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res.data.logs)
-          ? res.data.logs
-          : Array.isArray(res.data.items)
-          ? res.data.items
-          : Array.isArray(res.data.data)
-          ? res.data.data
-          : [];
-        setLogs(rawList);
+      const responseAny = res as any;
 
-        if (res.data.pagination) {
-          setTotalPages(res.data.pagination.totalPages || 1);
-          setTotalRecords(res.data.pagination.total || rawList.length);
-        } else {
-          setTotalPages(1);
-          setTotalRecords(rawList.length);
-        }
+      // If backend explicitly rejected the request with success === false and no data
+      if (responseAny && responseAny.success === false && !responseAny.data && !responseAny.logs && !responseAny.items) {
+        setError(responseAny.message || 'Unable to load audit logs from server');
+        setLogs([]);
+        setTotalPages(1);
+        setTotalRecords(0);
+        return;
+      }
+
+      const { logs: extractedList, pagination } = extractAuditLogs(res);
+      const safeLogs = Array.isArray(extractedList) ? extractedList : [];
+      setLogs(safeLogs);
+
+      if (pagination) {
+        setTotalPages(pagination.totalPages || pagination.pages || 1);
+        setTotalRecords(pagination.total || pagination.totalRecords || safeLogs.length);
       } else {
-        setError(res.message || 'Unable to load audit logs from server');
+        setTotalPages(1);
+        setTotalRecords(safeLogs.length);
       }
     } catch (err: unknown) {
       setError(getErrorMessage(err));
+      setLogs([]);
+      setTotalPages(1);
+      setTotalRecords(0);
     } finally {
       setLoading(false);
     }
@@ -168,7 +219,7 @@ export const AdminAuditLogsPage: React.FC = () => {
             )}
           </div>
 
-          {logs.length === 0 ? (
+          {!Array.isArray(logs) || logs.length === 0 ? (
             <div className="py-16 text-center text-xs text-[#5B6B7A] space-y-2">
               <Lock className="w-8 h-8 text-[#5B6B7A]/40 mx-auto" />
               <p className="font-semibold text-sm text-[#172B4D]">No audit log records found</p>
@@ -178,7 +229,7 @@ export const AdminAuditLogsPage: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-[#D9E2EC] text-xs">
-              {logs.map((log: any, i: number) => {
+              {Array.isArray(logs) && logs.map((log: any, i: number) => {
                 const actor = getActorName(log);
                 const details = getLogDetails(log);
                 const role = safeString(log.userRole || (typeof log.user === 'object' ? log.user?.role : ''));
@@ -231,7 +282,7 @@ export const AdminAuditLogsPage: React.FC = () => {
           {totalPages > 1 && (
             <div className="p-3 border-t border-[#D9E2EC] bg-[#F5F8FC] flex items-center justify-between text-xs text-[#5B6B7A]">
               <span>
-                Showing {logs.length} of {totalRecords} records
+                Showing {Array.isArray(logs) ? logs.length : 0} of {totalRecords} records
               </span>
               <div className="flex items-center gap-2">
                 <button

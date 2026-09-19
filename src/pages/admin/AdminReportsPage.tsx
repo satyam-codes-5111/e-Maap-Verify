@@ -214,7 +214,13 @@ export const AdminReportsPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard
               title="Total Record Entries"
-              value={data?.totalRecords ?? data?.records?.length ?? data?.logs?.length ?? 0}
+              value={
+                data?.totalRecords ??
+                (Array.isArray(data?.records) ? data.records.length : 
+                 Array.isArray(data?.logs) ? data.logs.length : 
+                 Array.isArray(data?.items) ? data.items.length : 
+                 Array.isArray(data) ? data.length : 0)
+              }
               description="Logged in selected timeframe"
               icon={FileSpreadsheet}
               variant="blue"
@@ -263,8 +269,18 @@ export const AdminReportsPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-[#D9E2EC]">
                   {(() => {
-                    const reportRecords = data?.records || data?.logs || data?.items || [];
-                    if (reportRecords.length === 0) {
+                    const reportRecords = Array.isArray(data)
+                      ? data
+                      : Array.isArray(data?.records)
+                      ? data.records
+                      : Array.isArray(data?.logs)
+                      ? data.logs
+                      : Array.isArray(data?.items)
+                      ? data.items
+                      : Array.isArray(data?.data)
+                      ? data.data
+                      : [];
+                    if (!Array.isArray(reportRecords) || reportRecords.length === 0) {
                       return (
                         <tr>
                           <td colSpan={6} className="py-12 text-center text-xs text-[#5B6B7A]">
@@ -273,7 +289,7 @@ export const AdminReportsPage: React.FC = () => {
                         </tr>
                       );
                     }
-                    return reportRecords.map((row: any, i: number) => (
+                    return Array.isArray(reportRecords) && reportRecords.map((row: any, i: number) => (
                       <tr key={row._id || row.id || i} className="hover:bg-[#F8FAFC] transition">
                         <td className="py-3 px-4 font-mono font-bold text-[#123B6D]">
                           {row.applicationNumber || row.certificateNumber || row.ref || row._id || `REC-${i + 1}`}
