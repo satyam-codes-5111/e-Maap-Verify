@@ -60,7 +60,7 @@ export const AdminUsersPage: React.FC = () => {
         const list = Array.isArray(res.data) ? res.data : (res.data.users || []);
         setUsers(list);
         if (res.data.pagination) {
-          setTotalPages(res.data.pagination.pages || 1);
+          setTotalPages(res.data.pagination.totalPages || res.data.pagination.pages || 1);
           setTotalRecords(res.data.pagination.total || 0);
         }
       }
@@ -180,17 +180,33 @@ export const AdminUsersPage: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (id: string) => {
+  const isUserActive = (item: UserProfile): boolean => {
+    if (typeof item.isActive === 'boolean') return item.isActive;
+    if (typeof item.status === 'string') return item.status.toUpperCase() === 'ACTIVE';
+    return true;
+  };
+
+  const handleToggleStatus = async (id: string, targetActive?: boolean) => {
     try {
-      const res = await userApi.toggleStatus(id);
+      const res = await userApi.toggleStatus(
+        id,
+        targetActive !== undefined ? { isActive: targetActive } : undefined
+      );
       if (res.success) {
         setToast({
           id: String(Date.now()),
-          type: 'info',
-          title: 'Account Status Toggled',
-          message: 'User active status updated.',
+          type: 'success',
+          title: targetActive === false ? 'Account Suspended' : 'Account Activated',
+          message: res.message || 'User status updated successfully.',
         });
-        fetchUsers();
+        await fetchUsers();
+      } else {
+        setToast({
+          id: String(Date.now()),
+          type: 'error',
+          title: 'Toggle Failed',
+          message: res.message || 'Unable to update user status.',
+        });
       }
     } catch (err: unknown) {
       setToast({
@@ -239,9 +255,10 @@ export const AdminUsersPage: React.FC = () => {
     },
     {
       header: 'Status',
-      cell: (item) => (
-        <StatusBadge status={item.status || 'ACTIVE'} size="sm" />
-      ),
+      cell: (item) => {
+        const active = isUserActive(item);
+        return <StatusBadge status={active ? 'ACTIVE' : 'INACTIVE'} size="sm" />;
+      },
     },
     {
       header: 'Actions',
@@ -250,12 +267,13 @@ export const AdminUsersPage: React.FC = () => {
         const isSelf = item._id === currentUser?.id;
         const isTargetSuperAdmin = item.role === 'SUPER_ADMIN';
         const cannotModify = isSelf || (isTargetSuperAdmin && !isSuperAdmin);
+        const active = isUserActive(item);
 
         return (
           <button
             type="button"
             disabled={cannotModify}
-            onClick={() => handleToggleStatus(item._id)}
+            onClick={() => handleToggleStatus(item._id, !active)}
             title={
               isSelf
                 ? 'Cannot modify own active account'
@@ -263,9 +281,13 @@ export const AdminUsersPage: React.FC = () => {
                 ? 'Only Super Administrators can modify Super Admin accounts'
                 : undefined
             }
-            className="px-2.5 py-1 text-xs font-semibold text-[#172B4D] bg-white hover:bg-[#F5F8FC] border border-[#D9E2EC] rounded-md transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
+            className={`px-2.5 py-1 text-xs font-semibold border rounded-md transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer ${
+              active
+                ? 'text-amber-800 bg-white hover:bg-amber-50 border-amber-200'
+                : 'text-emerald-700 bg-white hover:bg-emerald-50 border-emerald-300 font-bold'
+            }`}
           >
-            {item.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+            {active ? 'Suspend' : 'Activate'}
           </button>
         );
       },

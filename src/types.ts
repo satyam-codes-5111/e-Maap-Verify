@@ -43,6 +43,7 @@ export interface UserProfile {
     district?: string;
     zone?: string;
   };
+  isActive?: boolean;
   status?: string;
   createdAt?: string;
 }

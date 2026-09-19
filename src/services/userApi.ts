@@ -22,8 +22,18 @@ export const userApi = {
     return res.data;
   },
 
-  toggleStatus: async (id: string) => {
-    const res = await api.patch<ApiResponse<any>>(`/users/${id}/status`);
+  toggleStatus: async (id: string, data?: { isActive?: boolean; status?: string }) => {
+    const res = await api.patch<ApiResponse<any>>(`/users/${id}/status`, data);
+    return res.data;
+  },
+
+  activateUser: async (id: string) => {
+    const res = await api.patch<ApiResponse<any>>(`/users/${id}/status`, { isActive: true });
+    return res.data;
+  },
+
+  deactivateUser: async (id: string) => {
+    const res = await api.patch<ApiResponse<any>>(`/users/${id}/status`, { isActive: false });
     return res.data;
   },
 

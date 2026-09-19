@@ -84,11 +84,17 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
+// Virtual for status string representation
+userSchema.virtual('status').get(function () {
+  return this.isActive ? 'ACTIVE' : 'INACTIVE';
+});
+
 // Safe transform to remove sensitive fields when serialized
 userSchema.methods.toJSON = function () {
-  const obj = this.toObject();
+  const obj = this.toObject({ virtuals: true });
   delete obj.password;
   delete obj.__v;
+  obj.status = this.isActive ? 'ACTIVE' : 'INACTIVE';
   return obj;
 };
 

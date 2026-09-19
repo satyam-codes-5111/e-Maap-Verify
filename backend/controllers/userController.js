@@ -26,6 +26,9 @@ export const getUsers = asyncHandler(async (req, res) => {
   if (req.query.isActive !== undefined) {
     filter.isActive = req.query.isActive === 'true';
   }
+  if (req.query.status !== undefined) {
+    filter.isActive = req.query.status.toUpperCase() === 'ACTIVE';
+  }
   if (req.query.search) {
     const safeSearch = escapeRegex(req.query.search);
     filter.$or = [
@@ -209,8 +212,18 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
     throw ApiError.forbidden('Only Super Administrators can modify Super Administrator status.');
   }
 
-  // Prevent deactivating the last active SUPER_ADMIN
-  const targetStatus = req.body.isActive !== undefined ? req.body.isActive : !user.isActive;
+  // Resolve target active status
+  let targetStatus;
+  if (typeof req.body.isActive === 'boolean') {
+    targetStatus = req.body.isActive;
+  } else if (typeof req.body.isActive === 'string') {
+    targetStatus = req.body.isActive.toLowerCase() === 'true';
+  } else if (typeof req.body.status === 'string') {
+    targetStatus = req.body.status.toUpperCase() === 'ACTIVE';
+  } else {
+    targetStatus = !user.isActive;
+  }
+
   if (!targetStatus && user.role === USER_ROLES.SUPER_ADMIN) {
     const activeSuperAdmins = await User.countDocuments({ role: USER_ROLES.SUPER_ADMIN, isActive: true });
     if (activeSuperAdmins <= 1) {
