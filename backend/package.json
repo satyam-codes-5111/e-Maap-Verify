@@ -8,6 +8,10 @@
     "start": "node server.js",
     "dev": "node server.js",
     "seed:admin": "node scripts/createAdmin.js",
+    "seed:business-users": "node scripts/seedBusinessUsers.js",
+    "verify:business-users": "node scripts/verifyBusinessUsers.js",
+    "seed:departmental-users": "node scripts/seedDepartmentalUsers.js",
+    "verify:departmental-users": "node scripts/verifyDepartmentalUsers.js",
     "reset-admin-password": "node scripts/resetSuperAdminPassword.js"
   },
   "dependencies": {
