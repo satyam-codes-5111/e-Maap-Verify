@@ -26,9 +26,3 @@ body {
   padding-bottom: var(--sab);
   padding-left: var(--sal);
 }
-
-html,
-body {
-  overflow-x: clip;
-}
-

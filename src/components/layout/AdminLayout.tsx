@@ -29,7 +29,7 @@ export const AdminLayout: React.FC = () => {
   const pageTitle = getPageTitle(location.pathname);
 
   return (
-    <div className="min-h-screen bg-[#F5F8FC] flex flex-col font-sans text-[#172B4D] overflow-x-clip">
+    <div className="min-h-screen bg-[#F5F8FC] flex flex-col font-sans text-[#172B4D]">
       <div className="flex flex-1 min-h-screen">
         {/* Desktop Sidebar: Sticky, Fixed width, Full viewport height */}
         <div className="hidden lg:block shrink-0 sticky top-0 h-screen z-20">
