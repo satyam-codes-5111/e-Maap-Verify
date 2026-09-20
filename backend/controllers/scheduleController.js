@@ -30,8 +30,19 @@ import {
 } from '../services/scheduleService.js';
 
 export const scheduleApplication = asyncHandler(async (req, res) => {
+  // Strict role check: Only Super Admin, Admin, and Legal Metrology Officer can schedule
+  if (
+    req.user.role !== USER_ROLES.SUPER_ADMIN &&
+    req.user.role !== USER_ROLES.ADMIN &&
+    req.user.role !== USER_ROLES.LEGAL_METROLOGY_OFFICER
+  ) {
+    throw ApiError.forbidden('Only Administrators and Legal Metrology Officers are authorized to schedule verification.');
+  }
+
   const applicationId = req.body.applicationId || req.body.application;
-  const assignedOfficerId = req.body.assignedOfficer || req.body.assignedOfficerId || req.body.officerId;
+  const callerIsLmo = req.user.role === USER_ROLES.LEGAL_METROLOGY_OFFICER;
+  const rawAssignedOfficerId = req.body.assignedOfficer || req.body.assignedOfficerId || req.body.officerId;
+  const assignedOfficerId = rawAssignedOfficerId || (callerIsLmo ? String(req.user._id) : null);
   const assignedFieldOfficerId = req.body.assignedFieldOfficer || req.body.assignedFieldOfficerId || req.body.fieldOfficerId;
   const verificationCenterId = req.body.verificationCenterId || req.body.verificationCenter || req.body.centerId;
   const gatcId = req.body.gatcId || req.body.assignedGATC || req.body.gatc;
@@ -149,10 +160,15 @@ export const scheduleApplication = asyncHandler(async (req, res) => {
   });
 
   const resolvedAddress =
-    locationAddress ||
-    application.verificationLocation?.address ||
-    center?.address?.street ||
-    'Registered Business Premises';
+    (typeof locationAddress === 'string' && locationAddress.trim().length > 0)
+      ? locationAddress.trim()
+      : (typeof application.verificationLocation?.address === 'string' && application.verificationLocation.address.trim().length > 0)
+      ? application.verificationLocation.address.trim()
+      : (typeof application.verificationLocation === 'string' && application.verificationLocation.trim().length > 0)
+      ? application.verificationLocation.trim()
+      : (application.verificationLocation?.district
+         ? `Premises at ${application.verificationLocation.district}, ${application.verificationLocation.state || 'India'}`
+         : (center?.address?.street || 'Registered Business Premises'));
 
   const schedule = new VerificationSchedule({
     application: application._id,
@@ -626,8 +642,12 @@ export const getMySchedules = asyncHandler(async (req, res) => {
       { assignedOfficer: req.user._id },
       { assignedGATC: req.user._id },
     ];
+  } else if (req.user.role === USER_ROLES.LEGAL_METROLOGY_OFFICER) {
+    filter.$or = [
+      { assignedOfficer: req.user._id },
+      { assignedFieldOfficer: req.user._id },
+    ];
   } else {
-    // Legal Metrology Officer
     filter.assignedOfficer = req.user._id;
   }
 

@@ -11,6 +11,7 @@ import { FilterPanel } from '../../components/common/FilterPanel';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 import { Modal } from '../../components/common/Modal';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { ScheduleVerificationModal } from '../../components/schedule/ScheduleVerificationModal';
 import {
   CalendarDays,
   Clock,
@@ -27,6 +28,7 @@ export const OfficerSchedulesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const canSchedule = isAdmin || user?.role === 'LEGAL_METROLOGY_OFFICER';
 
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,9 @@ export const OfficerSchedulesPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // New verification schedule modal state
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   // Reschedule modal state
   const [rescheduleItem, setRescheduleItem] = useState<ScheduleItem | null>(null);
@@ -406,6 +411,18 @@ export const OfficerSchedulesPage: React.FC = () => {
           },
           { label: 'Schedules' },
         ]}
+        actions={
+          canSchedule ? (
+            <button
+              type="button"
+              onClick={() => setScheduleModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition shadow-xs"
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>Schedule Verification</span>
+            </button>
+          ) : undefined
+        }
       />
 
       {/* Filter and Search Bar */}
@@ -573,6 +590,21 @@ export const OfficerSchedulesPage: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Shared Statutory Schedule Verification Modal */}
+      <ScheduleVerificationModal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onSuccess={() => {
+          setToast({
+            id: String(Date.now()),
+            type: 'success',
+            title: 'Schedule Allotted',
+            message: 'Statutory verification schedule has been allotted and added to beat roster.',
+          });
+          fetchSchedules();
+        }}
+      />
     </div>
   );
 };

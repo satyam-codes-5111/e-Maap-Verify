@@ -56,10 +56,28 @@ export const applicationApi = {
     return res.data;
   },
 
-  assignOfficer: async (id: string, payload: { officerId?: string; scheduledDate?: string; timeSlot?: string } | string) => {
-    const body = typeof payload === 'string'
-      ? { applicationId: id, officerId: payload }
-      : { applicationId: id, ...payload };
+  assignOfficer: async (
+    id: string,
+    payload:
+      | {
+          officerId?: string;
+          assignedOfficer?: string;
+          assignedOfficerId?: string;
+          assignedFieldOfficerId?: string;
+          fieldOfficerId?: string;
+          scheduledDate?: string;
+          timeSlot?: string;
+          locationType?: string;
+          locationAddress?: string;
+          specialInstructions?: string;
+          notes?: string;
+        }
+      | string
+  ) => {
+    const body =
+      typeof payload === 'string'
+        ? { applicationId: id, officerId: payload }
+        : { applicationId: id, ...payload };
     const res = await api.post<ApiResponse<any>>('/schedules', body);
     return res.data;
   },

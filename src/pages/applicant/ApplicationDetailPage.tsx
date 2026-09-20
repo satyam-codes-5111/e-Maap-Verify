@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { applicationApi } from '../../services/applicationApi';
 import { VerificationApplicationItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
@@ -10,6 +11,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 import { FileUploader } from '../../components/common/FileUploader';
 import { Modal } from '../../components/common/Modal';
+import { ScheduleVerificationModal } from '../../components/schedule/ScheduleVerificationModal';
 import { formatInstrumentCapacity } from '../../utils/formatters';
 import {
   FileCheck2,
@@ -24,11 +26,21 @@ import {
   CheckCircle2,
   Download,
   Building2,
+  FileSearch,
+  CalendarDays,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const ApplicationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const isDepartmentalOfficer =
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'LEGAL_METROLOGY_OFFICER';
+
   const [app, setApp] = useState<VerificationApplicationItem | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +52,19 @@ export const ApplicationDetailPage: React.FC = () => {
   const [docModalOpen, setDocModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Review modal
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewRemarks, setReviewRemarks] = useState('');
+  const [reviewing, setReviewing] = useState(false);
+
+  // Approve modal
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [approveRemarks, setApproveRemarks] = useState('');
+  const [approving, setApproving] = useState(false);
+
+  // Schedule modal
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   const fetchDetails = useCallback(async () => {
     if (!id) return;
@@ -71,6 +96,7 @@ export const ApplicationDetailPage: React.FC = () => {
     fetchDetails();
   }, [fetchDetails]);
 
+  // Applicant: Submit draft to department
   const handleSubmitDraft = async () => {
     if (!id) return;
     setSubmitting(true);
@@ -95,6 +121,70 @@ export const ApplicationDetailPage: React.FC = () => {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Department: Place under review
+  const handleReviewApplication = async () => {
+    if (!id) return;
+    setReviewing(true);
+    try {
+      const res = await applicationApi.reviewApplication(id, {
+        remarks: reviewRemarks.trim() || 'Application placed under formal technical scrutiny by officer',
+      });
+      if (res.success && res.data) {
+        setApp(res.data);
+        setToast({
+          id: String(Date.now()),
+          type: 'success',
+          title: 'Application Under Review',
+          message: 'Statutory scrutiny initiated. Application marked as UNDER REVIEW.',
+        });
+        setReviewModalOpen(false);
+        setReviewRemarks('');
+        fetchDetails();
+      }
+    } catch (err: unknown) {
+      setToast({
+        id: String(Date.now()),
+        type: 'error',
+        title: 'Review Error',
+        message: getErrorMessage(err),
+      });
+    } finally {
+      setReviewing(false);
+    }
+  };
+
+  // Department: Approve application
+  const handleApproveApplication = async () => {
+    if (!id) return;
+    setApproving(true);
+    try {
+      const res = await applicationApi.approveApplication(id, {
+        remarks: approveRemarks.trim() || 'Application verified and formally approved for verification scheduling',
+      });
+      if (res.success && res.data) {
+        setApp(res.data);
+        setToast({
+          id: String(Date.now()),
+          type: 'success',
+          title: 'Application Approved',
+          message: 'Statutory approval granted. Application is now ready for schedule allotment.',
+        });
+        setApproveModalOpen(false);
+        setApproveRemarks('');
+        fetchDetails();
+      }
+    } catch (err: unknown) {
+      setToast({
+        id: String(Date.now()),
+        type: 'error',
+        title: 'Approval Error',
+        message: getErrorMessage(err),
+      });
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -141,7 +231,11 @@ export const ApplicationDetailPage: React.FC = () => {
     return <ErrorState message={error || 'Application not found'} onRetry={fetchDetails} />;
   }
 
-  const isDraft = (app.currentStatus || app.status) === 'DRAFT';
+  const currentStatus = app.currentStatus || app.status;
+  const isDraft = currentStatus === 'DRAFT';
+  const isSubmitted = currentStatus === 'SUBMITTED';
+  const isUnderReview = currentStatus === 'UNDER_REVIEW';
+  const isApproved = currentStatus === 'APPROVED';
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -150,14 +244,21 @@ export const ApplicationDetailPage: React.FC = () => {
       <PageHeader
         title={app.applicationNumber}
         description={`Statutory Verification Application • Purpose: ${app.purpose || 'Verification'}`}
-        badge={<StatusBadge status={app.currentStatus || app.status} size="md" />}
+        badge={<StatusBadge status={currentStatus} size="md" />}
         breadcrumbs={[
-          { label: 'Dashboard', href: '/applicant/dashboard' },
-          { label: 'Applications', href: '/applicant/applications' },
+          {
+            label: 'Dashboard',
+            href: isDepartmentalOfficer ? '/admin/dashboard' : '/applicant/dashboard',
+          },
+          {
+            label: 'Applications',
+            href: isDepartmentalOfficer ? '/admin/applications' : '/applicant/applications',
+          },
           { label: app.applicationNumber },
         ]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Document attachment allowed across stages */}
             <button
               type="button"
               onClick={() => setDocModalOpen(true)}
@@ -167,6 +268,7 @@ export const ApplicationDetailPage: React.FC = () => {
               <span>Attach Document</span>
             </button>
 
+            {/* Applicant: Submit draft */}
             {isDraft && (
               <button
                 type="button"
@@ -178,6 +280,40 @@ export const ApplicationDetailPage: React.FC = () => {
                   <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 )}
                 <span>Submit to Department</span>
+              </button>
+            )}
+
+            {/* Department Actions: Review & Approve & Schedule */}
+            {isDepartmentalOfficer && isSubmitted && (
+              <button
+                type="button"
+                onClick={() => setReviewModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition shadow-2xs"
+              >
+                <FileSearch className="w-3.5 h-3.5 text-amber-800" />
+                <span>Initiate Review</span>
+              </button>
+            )}
+
+            {isDepartmentalOfficer && isUnderReview && (
+              <button
+                type="button"
+                onClick={() => setApproveModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition shadow-xs"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Grant Statutory Approval</span>
+              </button>
+            )}
+
+            {isDepartmentalOfficer && isApproved && (
+              <button
+                type="button"
+                onClick={() => setScheduleModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition shadow-xs"
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Schedule Verification</span>
               </button>
             )}
           </div>
@@ -350,7 +486,7 @@ export const ApplicationDetailPage: React.FC = () => {
                   <div key={idx} className="relative">
                     <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-teal-600 ring-4 ring-white" />
                     <div className="text-xs font-bold text-slate-800">
-                      {event.status?.replace(/_/g, ' ')}
+                      {event.status?.replace(/_/g, ' ') || event.toStatus?.replace(/_/g, ' ')}
                     </div>
                     <div className="text-[11px] text-slate-400">
                       {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'N/A'}
@@ -377,6 +513,96 @@ export const ApplicationDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Review Application Modal */}
+      <Modal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        title="Conduct Technical Scrutiny"
+        subtitle={`Initiate departmental technical review for ${app.applicationNumber}`}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <button
+              type="button"
+              onClick={() => setReviewModalOpen(false)}
+              className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleReviewApplication}
+              disabled={reviewing}
+              className="px-4 py-1.5 text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 rounded-lg transition shadow-xs disabled:opacity-50"
+            >
+              {reviewing ? 'Marking Under Review...' : 'Confirm Technical Scrutiny'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3 text-xs">
+          <p className="text-slate-600">
+            Placing this application under review formally marks that a Legal Metrology Officer is examining the statutory dossier, instrument specifications, and trade licensing.
+          </p>
+          <div>
+            <label className="block font-bold text-slate-800 mb-1">
+              Scrutiny Observations / Technical Remarks
+            </label>
+            <textarea
+              rows={3}
+              value={reviewRemarks}
+              onChange={(e) => setReviewRemarks(e.target.value)}
+              placeholder="e.g., Documents verified; accuracy class conforms to General Rules"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Approve Application Modal */}
+      <Modal
+        isOpen={approveModalOpen}
+        onClose={() => setApproveModalOpen(false)}
+        title="Grant Statutory Approval"
+        subtitle={`Approve application ${app.applicationNumber} for physical inspection scheduling`}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <button
+              type="button"
+              onClick={() => setApproveModalOpen(false)}
+              className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleApproveApplication}
+              disabled={approving}
+              className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition shadow-xs disabled:opacity-50"
+            >
+              {approving ? 'Approving...' : 'Confirm Statutory Approval'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3 text-xs">
+          <p className="text-slate-600">
+            Granting statutory approval satisfies all preliminary legal conditions. Once approved, the application will become eligible for immediate field verification beat scheduling.
+          </p>
+          <div>
+            <label className="block font-bold text-slate-800 mb-1">
+              Statutory Approval Endorsement / Remarks
+            </label>
+            <textarea
+              rows={3}
+              value={approveRemarks}
+              onChange={(e) => setApproveRemarks(e.target.value)}
+              placeholder="e.g., Application and statutory documents formally endorsed for verification"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Attach Document Modal */}
       <Modal
@@ -410,6 +636,23 @@ export const ApplicationDetailPage: React.FC = () => {
           onFileSelect={setSelectedFile}
         />
       </Modal>
+
+      {/* Schedule Verification Modal */}
+      <ScheduleVerificationModal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onSuccess={() => {
+          setToast({
+            id: String(Date.now()),
+            type: 'success',
+            title: 'Schedule Generated',
+            message: 'Statutory verification schedule successfully recorded.',
+          });
+          fetchDetails();
+        }}
+        application={app}
+        lockApplication={true}
+      />
     </div>
   );
 };

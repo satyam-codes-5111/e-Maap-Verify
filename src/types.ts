@@ -8,6 +8,7 @@ export type UserRole =
 
 export interface AuthUser {
   id: string;
+  _id?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -48,6 +49,8 @@ export interface UserProfile {
   createdAt?: string;
 }
 
+export type UserItem = UserProfile;
+
 export interface Address {
   line1?: string;
   line2?: string;
@@ -56,12 +59,15 @@ export interface Address {
   state?: string;
   pincode?: string;
   premiseName?: string;
+  address?: string;
+  addressLine?: string;
 }
 
 export interface StakeholderItem {
   _id: string;
   user?: string | { _id: string; name: string; email: string; phone?: string };
   businessName: string;
+  legalName?: string;
   tradeLicenseNumber?: string;
   gstNumber?: string;
   panNumber?: string;
@@ -127,6 +133,7 @@ export interface VerificationApplicationItem {
   _id: string;
   applicationNumber: string;
   applicationType?: string;
+  verificationType?: string;
   currentStatus?: string;
   status?: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SCHEDULED' | 'INSPECTION' | 'VERIFIED';
   purpose?: string;

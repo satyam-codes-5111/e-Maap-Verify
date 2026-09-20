@@ -18,7 +18,21 @@ export const getUsers = asyncHandler(async (req, res) => {
 
   const filter = {};
   if (req.query.role) {
-    filter.role = req.query.role;
+    const rawRole = String(req.query.role).trim();
+    if (rawRole === 'OFFICER') {
+      // Map legacy/generic 'OFFICER' query to real statutory officer roles
+      filter.role = {
+        $in: [
+          USER_ROLES.LEGAL_METROLOGY_OFFICER,
+          USER_ROLES.FIELD_VERIFICATION_OFFICER,
+        ],
+      };
+    } else if (rawRole.includes(',')) {
+      const roles = rawRole.split(',').map((r) => r.trim()).filter(Boolean);
+      filter.role = { $in: roles };
+    } else {
+      filter.role = rawRole;
+    }
   }
   if (req.query.district) {
     filter['jurisdiction.district'] = new RegExp(escapeRegex(req.query.district), 'i');

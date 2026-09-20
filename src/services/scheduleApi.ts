@@ -33,10 +33,20 @@ export const scheduleApi = {
 
   createSchedule: async (data: {
     applicationId: string;
-    officerId: string;
+    officerId?: string;
+    assignedOfficer?: string;
+    assignedOfficerId?: string;
+    assignedFieldOfficerId?: string;
+    fieldOfficerId?: string;
     scheduledDate: string;
     timeSlot: string;
+    startTime?: string;
+    endTime?: string;
     verificationCenter?: string;
+    verificationCenterId?: string;
+    locationType?: string;
+    locationAddress?: string;
+    specialInstructions?: string;
     notes?: string;
   }) => {
     const res = await api.post<ApiResponse<ScheduleItem>>('/schedules', data);
