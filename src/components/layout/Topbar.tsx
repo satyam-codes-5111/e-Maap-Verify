@@ -61,7 +61,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleMobileSidebar }) => {
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
+    <header className="fixed top-0 left-0 right-0 lg:left-64 z-[9999] bg-white border-b border-slate-200 shadow-2xs pt-[var(--sat,0px)]">
       {/* National Tricolor Top Strip */}
       <div className="h-1 w-full flex">
         <div className="h-full flex-1 bg-[#FF9933]" title="Saffron" />

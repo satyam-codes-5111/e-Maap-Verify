@@ -38,7 +38,7 @@ export const AdminLayout: React.FC = () => {
 
         {/* Mobile Off-Canvas Drawer */}
         {mobileSidebarOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div className="fixed inset-0 z-[10000] lg:hidden flex">
             {/* Backdrop */}
             <div
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
@@ -59,6 +59,8 @@ export const AdminLayout: React.FC = () => {
             onToggleMobileSidebar={() => setMobileSidebarOpen((prev) => !prev)}
             pageTitle={pageTitle}
           />
+          {/* Fixed Header Height Spacer */}
+          <div className="h-[69px] shrink-0" aria-hidden="true" />
 
           <main className="flex-1 p-3.5 sm:p-5 lg:p-7 max-w-7xl w-full mx-auto overflow-x-hidden">
             <Outlet />

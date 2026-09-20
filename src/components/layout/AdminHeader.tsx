@@ -52,7 +52,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileSidebar,
   };
 
   return (
-    <header className="bg-white border-b border-[#D9E2EC] sticky top-0 z-30 shadow-xs select-none">
+    <header className="fixed top-0 left-0 right-0 lg:left-64 xl:left-72 z-[9999] bg-white border-b border-[#D9E2EC] shadow-xs select-none pt-[var(--sat,0px)]">
       {/* Top Government of India Tricolor Strip */}
       <div className="h-1 w-full flex" aria-hidden="true">
         <div className="h-full flex-1 bg-[#FF9933]" title="Saffron" />
