@@ -69,8 +69,9 @@ export default function App() {
         <ErrorBoundary>
           <Routes>
             {/* Public Portal Routes */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<LoginPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/portal" element={<LandingPage />} />
             <Route path="/verify-certificate" element={<VerifyCertificatePage />} />
 
             {/* Smart Redirect to Role Dashboard */}

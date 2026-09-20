@@ -30,7 +30,7 @@ interface LoginFormInputs {
 }
 
 export const LoginPage: React.FC = () => {
-  const { user, login, logout, getRoleRedirectPath } = useAuth();
+  const { login, logout, getRoleRedirectPath } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -38,12 +38,6 @@ export const LoginPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    if (user?.role) {
-      navigate(getRoleRedirectPath(user.role), { replace: true });
-    }
-  }, [user, navigate, getRoleRedirectPath]);
 
   const {
     register,
@@ -529,7 +523,7 @@ export const LoginPage: React.FC = () => {
               {/* PUBLIC LINK */}
               <div className="border-t border-slate-200 px-5 sm:px-7 md:px-8 py-4 text-center">
                 <Link
-                  to="/"
+                  to="/portal"
                   className="text-sm text-[#07549a] hover:underline font-semibold"
                 >
                   ← Back to Public Portal

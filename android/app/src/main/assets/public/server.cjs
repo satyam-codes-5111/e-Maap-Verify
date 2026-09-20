@@ -28,6 +28,54 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// backend/config/env.js
+var import_dotenv, import_path, BACKEND_PORT, resolvedServerUrl, ENV, rawOrigins, ALLOWED_ORIGINS;
+var init_env = __esm({
+  "backend/config/env.js"() {
+    import_dotenv = __toESM(require("dotenv"), 1);
+    import_path = __toESM(require("path"), 1);
+    import_dotenv.default.config();
+    if (!process.env.JWT_SECRET) {
+      throw new Error("[FATAL CONFIG ERROR] Missing required environment variable: JWT_SECRET must be set in environment.");
+    }
+    BACKEND_PORT = parseInt(process.env.PORT, 10) || 3e3;
+    resolvedServerUrl = process.env.SERVER_URL && process.env.SERVER_URL.includes(`:${BACKEND_PORT}`) ? process.env.SERVER_URL : process.env.SERVER_URL || process.env.APP_URL || `http://localhost:${BACKEND_PORT}`;
+    ENV = {
+      NODE_ENV: process.env.NODE_ENV || "development",
+      PORT: BACKEND_PORT,
+      MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI || "",
+      JWT_SECRET: process.env.JWT_SECRET,
+      JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "8h",
+      CLIENT_URL: process.env.CLIENT_URL || "http://localhost:5173",
+      SERVER_URL: resolvedServerUrl,
+      UPLOAD_DIR: process.env.UPLOAD_DIR ? import_path.default.resolve(process.cwd(), process.env.UPLOAD_DIR) : import_path.default.resolve(process.cwd(), "uploads"),
+      SMTP_HOST: process.env.SMTP_HOST || "",
+      SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
+      SMTP_USER: process.env.SMTP_USER || "",
+      SMTP_PASSWORD: process.env.SMTP_PASSWORD || "",
+      SMTP_FROM: process.env.SMTP_FROM || "",
+      // Initial Admin credentials - read STRICTLY from environment
+      ADMIN_INITIAL_NAME: process.env.ADMIN_INITIAL_NAME || process.env.ADMIN_NAME || "",
+      ADMIN_INITIAL_EMAIL: process.env.ADMIN_INITIAL_EMAIL || process.env.ADMIN_EMAIL || "",
+      ADMIN_INITIAL_PASSWORD: process.env.ADMIN_INITIAL_PASSWORD || process.env.ADMIN_PASSWORD || "",
+      ADMIN_INITIAL_PHONE: process.env.ADMIN_INITIAL_PHONE || process.env.ADMIN_PHONE || "",
+      // Reminder Windows (days) and statutory due thresholds
+      REMINDER_WINDOWS: (process.env.REMINDER_WINDOWS || "7,30,60").split(",").map((w) => parseInt(w.trim(), 10)).filter((n) => !isNaN(n) && n > 0).sort((a, b) => a - b),
+      OVERDUE_APPLICATION_DAYS: parseInt(process.env.OVERDUE_APPLICATION_DAYS || "15", 10),
+      AUTH_RATE_LIMIT_MAX: parseInt(process.env.AUTH_RATE_LIMIT_MAX || "25", 10),
+      API_RATE_LIMIT_MAX: parseInt(process.env.API_RATE_LIMIT_MAX || "150", 10)
+    };
+    rawOrigins = [
+      ENV.CLIENT_URL,
+      process.env.CLIENT_URL,
+      process.env.APP_URL,
+      process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : [],
+      ENV.NODE_ENV !== "production" ? ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"] : []
+    ].flat().filter(Boolean).map((url) => String(url).trim().replace(/\/$/, ""));
+    ALLOWED_ORIGINS = Array.from(new Set(rawOrigins));
+  }
+});
+
 // backend/config/constants.js
 var USER_ROLES, USER_ROLE_LIST, APPLICATION_STATUSES, APPLICATION_STATUS_LIST, ALLOWED_STATUS_TRANSITIONS, APPLICATION_TYPES, APPLICATION_TYPE_LIST, SCHEDULE_STATUSES, SCHEDULE_STATUS_LIST, ALLOWED_SCHEDULE_STATUS_TRANSITIONS, INSTRUMENT_STATUSES, INSTRUMENT_STATUS_LIST, INSTRUMENT_CATEGORIES, INSTRUMENT_CATEGORY_LIST, ACCURACY_CLASSES, ACCURACY_CLASS_LIST, CERTIFICATE_STATUSES, CERTIFICATE_STATUS_LIST, ALLOWED_CERTIFICATE_STATUS_TRANSITIONS, VERIFICATION_VERDICTS, VERIFICATION_VERDICT_LIST, NOTIFICATION_TYPES, NOTIFICATION_TYPE_LIST, NOTIFICATION_PRIORITIES, NOTIFICATION_PRIORITY_LIST, DYNAMIC_CERTIFICATE_STATUSES, DYNAMIC_CERTIFICATE_STATUS_LIST, INSTRUMENT_DUE_STATUSES, INSTRUMENT_DUE_STATUS_LIST, INSPECTION_STATUSES, INSPECTION_STATUS_LIST, ALLOWED_INSPECTION_STATUS_TRANSITIONS, INSPECTION_RESULTS, INSPECTION_RESULT_LIST, DEFECT_SEVERITIES, DEFECT_SEVERITY_LIST, AUDIT_ACTIONS;
 var init_constants = __esm({
@@ -358,6 +406,102 @@ var init_constants = __esm({
       EXPIRY_CHECK_EXECUTED: "EXPIRY_CHECK_EXECUTED",
       DUE_DATE_ALERT_DISPATCHED: "DUE_DATE_ALERT_DISPATCHED"
     };
+  }
+});
+
+// backend/models/User.js
+var import_mongoose, import_bcryptjs, userSchema, User;
+var init_User = __esm({
+  "backend/models/User.js"() {
+    import_mongoose = __toESM(require("mongoose"), 1);
+    import_bcryptjs = __toESM(require("bcryptjs"), 1);
+    init_constants();
+    userSchema = new import_mongoose.default.Schema(
+      {
+        name: {
+          type: String,
+          required: [true, "Full name is required"],
+          trim: true,
+          maxlength: [100, "Name cannot exceed 100 characters"]
+        },
+        email: {
+          type: String,
+          required: [true, "Email address is required"],
+          unique: true,
+          lowercase: true,
+          trim: true,
+          index: true,
+          match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, "Please provide a valid email address"]
+        },
+        password: {
+          type: String,
+          required: [true, "Password is required"],
+          minlength: [6, "Password must be at least 6 characters long"],
+          select: false
+          // Never return password by default
+        },
+        phone: {
+          type: String,
+          trim: true,
+          index: true
+        },
+        role: {
+          type: String,
+          enum: {
+            values: USER_ROLE_LIST,
+            message: "{VALUE} is not a recognized system role"
+          },
+          default: USER_ROLES.BUSINESS_USER,
+          index: true
+        },
+        designation: {
+          type: String,
+          trim: true
+        },
+        jurisdiction: {
+          state: { type: String, trim: true },
+          district: { type: String, trim: true, index: true },
+          zone: { type: String, trim: true }
+        },
+        organization: {
+          type: String,
+          trim: true
+        },
+        isActive: {
+          type: Boolean,
+          default: true,
+          index: true
+        },
+        lastLogin: {
+          type: Date
+        }
+      },
+      {
+        timestamps: true
+      }
+    );
+    userSchema.index({ role: 1, isActive: 1 });
+    userSchema.pre("save", async function() {
+      if (!this.isModified("password")) {
+        return;
+      }
+      const salt = await import_bcryptjs.default.genSalt(12);
+      this.password = await import_bcryptjs.default.hash(this.password, salt);
+    });
+    userSchema.methods.comparePassword = async function(candidatePassword) {
+      return import_bcryptjs.default.compare(candidatePassword, this.password);
+    };
+    userSchema.virtual("status").get(function() {
+      return this.isActive ? "ACTIVE" : "INACTIVE";
+    });
+    userSchema.methods.toJSON = function() {
+      const obj = this.toObject({ virtuals: true });
+      delete obj.password;
+      delete obj.__v;
+      obj.status = this.isActive ? "ACTIVE" : "INACTIVE";
+      return obj;
+    };
+    User = import_mongoose.default.model("User", userSchema);
   }
 });
 
@@ -1705,6 +1849,72 @@ var init_integrityDiagnosticService = __esm({
   }
 });
 
+// backend/services/adminSeedService.js
+var adminSeedService_exports = {};
+__export(adminSeedService_exports, {
+  seedAdminUser: () => seedAdminUser
+});
+async function seedAdminUser() {
+  try {
+    const adminEmail = (ENV.ADMIN_INITIAL_EMAIL || "").trim().toLowerCase();
+    const adminPassword = (ENV.ADMIN_INITIAL_PASSWORD || "").trim();
+    const adminName = (ENV.ADMIN_INITIAL_NAME || "").trim() || "Super Administrator";
+    const adminPhone = (ENV.ADMIN_INITIAL_PHONE || "").trim();
+    if (!adminEmail || !adminPassword) {
+      console.log("[ADMIN SEED] Admin seed skipped: credentials not configured.");
+      return null;
+    }
+    const existingAdmin = await User.findOne({
+      $or: [{ email: adminEmail }, { role: USER_ROLES.SUPER_ADMIN }]
+    });
+    if (existingAdmin) {
+      console.log(`[ADMIN SEED] Super Admin already exists (${existingAdmin.email}, Role: ${existingAdmin.role}). Skipping seed.`);
+      return existingAdmin;
+    }
+    const adminData = {
+      name: adminName,
+      email: adminEmail,
+      password: adminPassword,
+      role: USER_ROLES.SUPER_ADMIN,
+      designation: "Director General of Legal Metrology",
+      jurisdiction: {
+        state: "National HQ",
+        district: "Central Secretariat, New Delhi",
+        zone: "North"
+      },
+      organization: "Department of Consumer Affairs (DoCA)",
+      isActive: true
+    };
+    if (adminPhone) {
+      adminData.phone = adminPhone;
+    }
+    const admin = new User(adminData);
+    await admin.save();
+    console.log("===========================================================");
+    console.log("\u2705 [ADMIN SEED] SUPER_ADMIN account created successfully:");
+    console.log(`   Name:        ${admin.name}`);
+    console.log(`   Email:       ${admin.email}`);
+    console.log(`   Role:        ${admin.role}`);
+    console.log(`   Designation: ${admin.designation}`);
+    console.log("===========================================================");
+    return admin;
+  } catch (error) {
+    if (error && (error.code === 11e3 || error.name === "MongoServerError")) {
+      console.log("[ADMIN SEED] Super Admin creation intercepted existing user or race condition. Admin already exists.");
+      return null;
+    }
+    console.error("[ADMIN SEED] Failed to seed Super Admin:", error.message);
+    return null;
+  }
+}
+var init_adminSeedService = __esm({
+  "backend/services/adminSeedService.js"() {
+    init_User();
+    init_constants();
+    init_env();
+  }
+});
+
 // server.ts
 var import_express16 = __toESM(require("express"), 1);
 var import_path8 = __toESM(require("path"), 1);
@@ -1717,52 +1927,11 @@ var import_helmet = __toESM(require("helmet"), 1);
 var import_hpp = __toESM(require("hpp"), 1);
 var import_path7 = __toESM(require("path"), 1);
 var import_fs6 = __toESM(require("fs"), 1);
-
-// backend/config/env.js
-var import_dotenv = __toESM(require("dotenv"), 1);
-var import_path = __toESM(require("path"), 1);
-import_dotenv.default.config();
-if (!process.env.JWT_SECRET) {
-  throw new Error("[FATAL CONFIG ERROR] Missing required environment variable: JWT_SECRET must be set in environment.");
-}
-var BACKEND_PORT = 3e3;
-var resolvedServerUrl = process.env.SERVER_URL && process.env.SERVER_URL.includes(":3000") ? process.env.SERVER_URL : process.env.APP_URL || `http://localhost:${BACKEND_PORT}`;
-var ENV = {
-  NODE_ENV: process.env.NODE_ENV || "development",
-  PORT: BACKEND_PORT,
-  MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI || "",
-  JWT_SECRET: process.env.JWT_SECRET,
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "8h",
-  CLIENT_URL: process.env.CLIENT_URL || "http://localhost:5173",
-  SERVER_URL: resolvedServerUrl,
-  UPLOAD_DIR: process.env.UPLOAD_DIR ? import_path.default.resolve(process.cwd(), process.env.UPLOAD_DIR) : import_path.default.resolve(process.cwd(), "uploads"),
-  SMTP_HOST: process.env.SMTP_HOST || "",
-  SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
-  SMTP_USER: process.env.SMTP_USER || "",
-  SMTP_PASSWORD: process.env.SMTP_PASSWORD || "",
-  SMTP_FROM: process.env.SMTP_FROM || "",
-  // Initial Admin credentials - read STRICTLY from environment
-  ADMIN_INITIAL_NAME: process.env.ADMIN_INITIAL_NAME || process.env.ADMIN_NAME || "",
-  ADMIN_INITIAL_EMAIL: process.env.ADMIN_INITIAL_EMAIL || process.env.ADMIN_EMAIL || "",
-  ADMIN_INITIAL_PASSWORD: process.env.ADMIN_INITIAL_PASSWORD || process.env.ADMIN_PASSWORD || "",
-  ADMIN_INITIAL_PHONE: process.env.ADMIN_INITIAL_PHONE || process.env.ADMIN_PHONE || "",
-  // Reminder Windows (days) and statutory due thresholds
-  REMINDER_WINDOWS: (process.env.REMINDER_WINDOWS || "7,30,60").split(",").map((w) => parseInt(w.trim(), 10)).filter((n) => !isNaN(n) && n > 0).sort((a, b) => a - b),
-  OVERDUE_APPLICATION_DAYS: parseInt(process.env.OVERDUE_APPLICATION_DAYS || "15", 10),
-  AUTH_RATE_LIMIT_MAX: parseInt(process.env.AUTH_RATE_LIMIT_MAX || "25", 10),
-  API_RATE_LIMIT_MAX: parseInt(process.env.API_RATE_LIMIT_MAX || "150", 10)
-};
-var rawOrigins = [
-  ENV.CLIENT_URL,
-  process.env.CLIENT_URL,
-  process.env.APP_URL,
-  process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : [],
-  ENV.NODE_ENV !== "production" ? ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"] : []
-].flat().filter(Boolean).map((url) => String(url).trim().replace(/\/$/, ""));
-var ALLOWED_ORIGINS = Array.from(new Set(rawOrigins));
+init_env();
 
 // backend/middleware/rateLimitMiddleware.js
 var import_express_rate_limit = __toESM(require("express-rate-limit"), 1);
+init_env();
 var getClientIp = (req) => {
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded && typeof forwarded === "string") {
@@ -1866,10 +2035,14 @@ var ApiError = class _ApiError extends Error {
   }
 };
 
+// backend/middleware/errorMiddleware.js
+init_env();
+
 // backend/utils/fileSecurity.js
 var import_fs = __toESM(require("fs"), 1);
 var import_path2 = __toESM(require("path"), 1);
 var import_crypto = __toESM(require("crypto"), 1);
+init_env();
 var ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",
@@ -1960,7 +2133,7 @@ function detectFileTypeFromBuffer(buffer) {
   if (buffer.length >= 8 && buffer[0] === 137 && buffer[1] === 80 && buffer[2] === 78 && buffer[3] === 71 && buffer[4] === 13 && buffer[5] === 10 && buffer[6] === 26 && buffer[7] === 10) {
     return { mime: "image/png", ext: ".png", isDangerous: false, type: "IMAGE" };
   }
-  if (buffer.subarray(0, 23).toString("utf8") === "PNG_TEST_BINARY_STREAM") {
+  if (process.env.NODE_ENV !== "production" && buffer.subarray(0, 23).toString("utf8") === "PNG_TEST_BINARY_STREAM") {
     return { mime: "image/png", ext: ".png", isDangerous: false, type: "IMAGE" };
   }
   if (buffer.length >= 3 && buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255) {
@@ -2271,93 +2444,7 @@ var errorHandler = (err, req, res, next) => {
 
 // backend/middleware/authMiddleware.js
 var import_jsonwebtoken = __toESM(require("jsonwebtoken"), 1);
-
-// backend/models/User.js
-var import_mongoose = __toESM(require("mongoose"), 1);
-var import_bcryptjs = __toESM(require("bcryptjs"), 1);
-init_constants();
-var userSchema = new import_mongoose.default.Schema(
-  {
-    name: {
-      type: String,
-      required: [true, "Full name is required"],
-      trim: true,
-      maxlength: [100, "Name cannot exceed 100 characters"]
-    },
-    email: {
-      type: String,
-      required: [true, "Email address is required"],
-      unique: true,
-      lowercase: true,
-      trim: true,
-      index: true,
-      match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, "Please provide a valid email address"]
-    },
-    password: {
-      type: String,
-      required: [true, "Password is required"],
-      minlength: [8, "Password must be at least 8 characters long"],
-      select: false
-      // Never return password by default
-    },
-    phone: {
-      type: String,
-      trim: true,
-      index: true
-    },
-    role: {
-      type: String,
-      enum: {
-        values: USER_ROLE_LIST,
-        message: "{VALUE} is not a recognized system role"
-      },
-      default: USER_ROLES.BUSINESS_USER,
-      index: true
-    },
-    designation: {
-      type: String,
-      trim: true
-    },
-    jurisdiction: {
-      state: { type: String, trim: true },
-      district: { type: String, trim: true, index: true },
-      zone: { type: String, trim: true }
-    },
-    organization: {
-      type: String,
-      trim: true
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-      index: true
-    },
-    lastLogin: {
-      type: Date
-    }
-  },
-  {
-    timestamps: true
-  }
-);
-userSchema.index({ role: 1, isActive: 1 });
-userSchema.pre("save", async function() {
-  if (!this.isModified("password")) {
-    return;
-  }
-  const salt = await import_bcryptjs.default.genSalt(12);
-  this.password = await import_bcryptjs.default.hash(this.password, salt);
-});
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return import_bcryptjs.default.compare(candidatePassword, this.password);
-};
-userSchema.methods.toJSON = function() {
-  const obj = this.toObject();
-  delete obj.password;
-  delete obj.__v;
-  return obj;
-};
-var User = import_mongoose.default.model("User", userSchema);
+init_User();
 
 // backend/utils/asyncHandler.js
 var asyncHandler = (fn) => (req, res, next) => {
@@ -2365,6 +2452,7 @@ var asyncHandler = (fn) => (req, res, next) => {
 };
 
 // backend/middleware/authMiddleware.js
+init_env();
 var protect = asyncHandler(async (req, res, next) => {
   if (req.method === "OPTIONS") {
     return next();
@@ -2406,6 +2494,7 @@ var protect = asyncHandler(async (req, res, next) => {
 // backend/controllers/fileController.js
 var import_path3 = __toESM(require("path"), 1);
 var import_fs2 = __toESM(require("fs"), 1);
+init_env();
 init_Stakeholder();
 init_Instrument();
 init_VerificationApplication();
@@ -2695,7 +2784,9 @@ var ApiResponse = class _ApiResponse {
 
 // backend/services/authService.js
 var import_jsonwebtoken2 = __toESM(require("jsonwebtoken"), 1);
+init_User();
 init_Stakeholder();
+init_env();
 init_constants();
 
 // backend/models/AuditLog.js
@@ -3135,6 +3226,7 @@ var import_express2 = require("express");
 
 // backend/controllers/userController.js
 var import_mongoose8 = __toESM(require("mongoose"), 1);
+init_User();
 
 // backend/utils/pagination.js
 function getPaginationParams(query = {}, defaultLimit = 10, maxLimit = 100) {
@@ -3163,6 +3255,7 @@ function buildPaginationResponse(data, total, page, limit, customKey = null) {
     applications: data,
     schedules: data,
     certificates: data,
+    logs: data,
     data,
     pagination: {
       page,
@@ -3192,6 +3285,9 @@ var getUsers = asyncHandler(async (req, res) => {
   }
   if (req.query.isActive !== void 0) {
     filter.isActive = req.query.isActive === "true";
+  }
+  if (req.query.status !== void 0) {
+    filter.isActive = req.query.status.toUpperCase() === "ACTIVE";
   }
   if (req.query.search) {
     const safeSearch = escapeRegex(req.query.search);
@@ -3322,7 +3418,16 @@ var toggleUserStatus = asyncHandler(async (req, res) => {
   if (user.role === USER_ROLES.SUPER_ADMIN && req.user.role !== USER_ROLES.SUPER_ADMIN) {
     throw ApiError.forbidden("Only Super Administrators can modify Super Administrator status.");
   }
-  const targetStatus = req.body.isActive !== void 0 ? req.body.isActive : !user.isActive;
+  let targetStatus;
+  if (typeof req.body.isActive === "boolean") {
+    targetStatus = req.body.isActive;
+  } else if (typeof req.body.isActive === "string") {
+    targetStatus = req.body.isActive.toLowerCase() === "true";
+  } else if (typeof req.body.status === "string") {
+    targetStatus = req.body.status.toUpperCase() === "ACTIVE";
+  } else {
+    targetStatus = !user.isActive;
+  }
   if (!targetStatus && user.role === USER_ROLES.SUPER_ADMIN) {
     const activeSuperAdmins = await User.countDocuments({ role: USER_ROLES.SUPER_ADMIN, isActive: true });
     if (activeSuperAdmins <= 1) {
@@ -3693,6 +3798,7 @@ var import_multer = __toESM(require("multer"), 1);
 var import_path4 = __toESM(require("path"), 1);
 var import_fs3 = __toESM(require("fs"), 1);
 var import_crypto2 = __toESM(require("crypto"), 1);
+init_env();
 var storage = import_multer.default.diskStorage({
   destination: (req, file, cb) => {
     let subfolder = "documents";
@@ -4580,8 +4686,12 @@ var NotificationPreference = import_mongoose14.default.model(
   notificationPreferenceSchema
 );
 
+// backend/services/notificationService.js
+init_User();
+
 // backend/services/emailService.js
 var import_nodemailer = __toESM(require("nodemailer"), 1);
+init_env();
 var transporter = null;
 if (ENV.SMTP_HOST && ENV.SMTP_USER) {
   transporter = import_nodemailer.default.createTransport({
@@ -5544,6 +5654,7 @@ init_VerificationSchedule();
 init_VerificationApplication();
 init_Instrument();
 init_Stakeholder();
+init_User();
 
 // backend/models/VerificationCenter.js
 var import_mongoose16 = __toESM(require("mongoose"), 1);
@@ -5697,6 +5808,7 @@ init_VerificationSchedule();
 init_VerificationApplication();
 init_Instrument();
 init_Stakeholder();
+init_User();
 init_constants();
 var ACTIVE_SCHEDULE_STATUSES = [
   SCHEDULE_STATUSES.PENDING,
@@ -6731,9 +6843,11 @@ init_VerificationInspection();
 init_VerificationApplication();
 init_Instrument();
 init_Stakeholder();
+init_User();
 
 // backend/services/qrService.js
 var import_qrcode = __toESM(require("qrcode"), 1);
+init_env();
 async function generateVerificationQR(qrVerificationToken) {
   const baseUrl = ENV.SERVER_URL || "http://localhost:3000";
   const publicVerificationUrl = `${baseUrl}/api/public/certificates/verify/${qrVerificationToken}`;
@@ -6762,6 +6876,7 @@ async function generateVerificationQR(qrVerificationToken) {
 var import_pdfkit = __toESM(require("pdfkit"), 1);
 var import_fs4 = __toESM(require("fs"), 1);
 var import_path5 = __toESM(require("path"), 1);
+init_env();
 async function generateCertificatePDF({
   certificateNumber,
   applicationNumber,
@@ -6907,6 +7022,7 @@ async function generateCertificatePDF({
 
 // backend/services/certificateService.js
 init_constants();
+init_env();
 function getDynamicStatus(certificate) {
   if (certificate.certificateStatus === CERTIFICATE_STATUSES.REVOKED || certificate.status === CERTIFICATE_STATUSES.REVOKED) {
     return CERTIFICATE_STATUSES.REVOKED;
@@ -8752,7 +8868,9 @@ init_Certificate();
 init_Instrument();
 init_VerificationApplication();
 init_Stakeholder();
+init_User();
 init_constants();
+init_env();
 function calculateCertificateDynamicStatus(certificate, expiringDays = 30, referenceDate = /* @__PURE__ */ new Date()) {
   if (!certificate) return null;
   const certStatus = certificate.certificateStatus || certificate.status;
@@ -9221,6 +9339,7 @@ var notificationRoutes_default = router10;
 var import_express11 = require("express");
 
 // backend/controllers/dashboardController.js
+init_User();
 init_Stakeholder();
 init_Instrument();
 init_VerificationApplication();
@@ -9910,6 +10029,7 @@ init_VerificationApplication();
 init_VerificationResult();
 init_Certificate();
 init_Instrument();
+init_User();
 init_VerificationSchedule();
 init_constants();
 function escapeCsvCell(val) {
@@ -10344,7 +10464,18 @@ var getAuditLogs = asyncHandler(async (req, res) => {
     filter.entity = req.query.entity;
   }
   if (req.query.userEmail) {
-    filter.userEmail = new RegExp(req.query.userEmail, "i");
+    filter.userEmail = new RegExp(escapeRegex(req.query.userEmail), "i");
+  }
+  if (req.query.search) {
+    const safeSearch = escapeRegex(req.query.search);
+    filter.$or = [
+      { action: { $regex: safeSearch, $options: "i" } },
+      { entity: { $regex: safeSearch, $options: "i" } },
+      { userEmail: { $regex: safeSearch, $options: "i" } },
+      { userRole: { $regex: safeSearch, $options: "i" } },
+      { ipAddress: { $regex: safeSearch, $options: "i" } },
+      { entityId: { $regex: safeSearch, $options: "i" } }
+    ];
   }
   if (req.query.startDate && req.query.endDate) {
     filter.timestamp = {
@@ -10353,12 +10484,12 @@ var getAuditLogs = asyncHandler(async (req, res) => {
     };
   }
   const [logs, total] = await Promise.all([
-    AuditLog.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit),
+    AuditLog.find(filter).populate("user", "name email role designation").sort({ timestamp: -1 }).skip(skip).limit(limit),
     AuditLog.countDocuments(filter)
   ]);
   return ApiResponse.success(
     res,
-    buildPaginationResponse(logs, total, page, limit),
+    buildPaginationResponse(logs, total, page, limit, "logs"),
     "Audit logs retrieved successfully"
   );
 });
@@ -10675,6 +10806,7 @@ init_VerificationSchedule();
 init_Certificate();
 init_Instrument();
 init_Stakeholder();
+init_User();
 init_constants();
 function parseDateFilter(dateFrom, dateTo, fieldName = "createdAt") {
   const filter = {};
@@ -11590,6 +11722,7 @@ init_VerificationInspection();
 init_Certificate();
 init_VerificationSchedule();
 init_Stakeholder();
+init_User();
 init_constants();
 function escapeCsvCell2(val) {
   if (val === null || val === void 0) return '""';
@@ -12062,9 +12195,6 @@ app.use(
 );
 app.use("/api", (req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
@@ -12084,10 +12214,10 @@ app.use(
         return callback(null, true);
       }
       const cleanOrigin = origin.trim().replace(/\/$/, "");
-      if (ALLOWED_ORIGINS.includes(cleanOrigin) || cleanOrigin.endsWith(".run.app") || cleanOrigin.endsWith(".google.com") || cleanOrigin.endsWith("ai.studio")) {
+      if (ALLOWED_ORIGINS.includes(cleanOrigin) || cleanOrigin.endsWith(".run.app") || cleanOrigin.endsWith(".google.com") || cleanOrigin.includes("google.com") || cleanOrigin.includes("aistudio") || cleanOrigin.endsWith("ai.studio") || cleanOrigin.includes("localhost") || cleanOrigin.includes("127.0.0.1")) {
         return callback(null, true);
       }
-      return callback(null, false);
+      return callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -12179,6 +12309,7 @@ var app_default = app;
 
 // backend/config/db.js
 var import_mongoose26 = __toESM(require("mongoose"), 1);
+init_env();
 async function connectDB() {
   const uri = ENV.MONGO_URI;
   const mongooseOpts = {
@@ -12241,7 +12372,14 @@ async function startServer() {
       console.log(`\u{1F4E1} API Base: http://localhost:${PORT}/api`);
       console.log(`====================================================`);
     });
-    connectDB().catch((err) => {
+    connectDB().then(async () => {
+      try {
+        const { seedAdminUser: seedAdminUser2 } = await Promise.resolve().then(() => (init_adminSeedService(), adminSeedService_exports));
+        await seedAdminUser2();
+      } catch (seedErr) {
+        console.error("[ADMIN SEED WARNING]", seedErr?.message);
+      }
+    }).catch((err) => {
       console.error("[DATABASE WARNING] Initial MongoDB connection error:", err?.message);
     });
   } catch (error) {
