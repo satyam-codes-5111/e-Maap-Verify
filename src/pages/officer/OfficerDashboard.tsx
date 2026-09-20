@@ -157,12 +157,12 @@ export const OfficerDashboard: React.FC = () => {
                       <StatusBadge status={sch.status} size="sm" />
                     </div>
                     <p className="text-xs text-slate-700 font-medium">
-                      {sch.application?.stakeholder?.businessName || 'Business Premise'}
+                      {sch.stakeholder?.businessName || sch.application?.stakeholder?.businessName || 'Business Premise'}
                     </p>
                     <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-400" />
-                      <span>
-                        {sch.location?.district || sch.application?.stakeholder?.district || 'Jurisdiction District'}
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="line-clamp-1">
+                        {sch.locationAddress || sch.location?.district || sch.application?.stakeholder?.district || 'Jurisdiction Beat'}
                       </span>
                     </div>
                   </div>

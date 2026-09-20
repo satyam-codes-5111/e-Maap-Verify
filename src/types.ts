@@ -156,27 +156,50 @@ export interface VerificationApplicationItem {
 
 export interface ScheduleItem {
   _id: string;
-  application: VerificationApplicationItem;
+  id?: string;
+  application?: VerificationApplicationItem | any;
+  instrument?: InstrumentItem | any;
+  stakeholder?: {
+    _id?: string;
+    businessName?: string;
+    tradeLicenseNumber?: string;
+    legalName?: string;
+    email?: string;
+    phone?: string;
+  } | any;
   scheduledDate: string;
-  timeSlot: string;
+  timeSlot?: string;
+  startTime?: string;
+  endTime?: string;
   assignedOfficer?: {
     _id: string;
     name: string;
-    email: string;
+    email?: string;
     designation?: string;
     phone?: string;
   };
-  status: 'SCHEDULED' | 'RESCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  verificationCenter?: string;
+  assignedFieldOfficer?: {
+    _id: string;
+    name: string;
+    email?: string;
+    designation?: string;
+    phone?: string;
+  };
+  status: 'SCHEDULED' | 'RESCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string;
+  verificationCenter?: any;
   location?: Address;
+  locationAddress?: string;
+  locationType?: string;
   notes?: string;
+  specialInstructions?: string;
   rescheduleHistory?: Array<{
     previousDate: string;
     newDate: string;
     reason: string;
     rescheduledAt: string;
   }>;
-  createdAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface InspectionReading {

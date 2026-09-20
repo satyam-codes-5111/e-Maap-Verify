@@ -47,7 +47,9 @@ export function DataTable<T>({
     return <LoadingSkeleton type="table" rows={5} className={className} />;
   }
 
-  if (!data || data.length === 0) {
+  const safeData = Array.isArray(data) ? data.filter(Boolean) : [];
+
+  if (safeData.length === 0) {
     return (
       <EmptyState
         title={emptyTitle}
@@ -59,13 +61,27 @@ export function DataTable<T>({
     );
   }
 
+  const resolveKey = (item: T, index: number): string => {
+    try {
+      if (keyExtractor) {
+        const key = keyExtractor(item);
+        if (key !== undefined && key !== null && String(key).trim() !== '') {
+          return String(key);
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+    return (item as any)?._id || (item as any)?.id || `row-${index}`;
+  };
+
   return (
     <div className={`bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden ${className}`}>
       {/* Mobile view if custom mobile card renderer provided */}
       {mobileCardRender ? (
         <div className="md:hidden divide-y divide-slate-100">
-          {data.map((item, index) => (
-            <div key={keyExtractor(item)} className="p-4 hover:bg-slate-50/70 transition">
+          {safeData.map((item, index) => (
+            <div key={resolveKey(item, index)} className="p-4 hover:bg-slate-50/70 transition">
               {mobileCardRender(item, index)}
             </div>
           ))}
@@ -85,13 +101,13 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {data.map((item, rowIdx) => (
-              <tr key={keyExtractor(item)} className="hover:bg-slate-50/60 transition">
+            {safeData.map((item, rowIdx) => (
+              <tr key={resolveKey(item, rowIdx)} className="hover:bg-slate-50/60 transition">
                 {columns.map((col, colIdx) => (
                   <td key={colIdx} className={`px-4 py-3.5 ${col.className || ''}`}>
                     {col.cell
                       ? col.cell(item, rowIdx)
-                      : col.accessor
+                      : col.accessor && item
                       ? (item[col.accessor] as any)
                       : null}
                   </td>

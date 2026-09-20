@@ -614,18 +614,52 @@ export const getMySchedules = asyncHandler(async (req, res) => {
       { assignedFieldOfficer: req.user._id },
       { assignedOfficer: req.user._id },
     ];
+  } else if (req.user.role === USER_ROLES.SUPER_ADMIN || req.user.role === USER_ROLES.ADMIN) {
+    if (req.query.assignedToMe === 'true') {
+      filter.assignedOfficer = req.user._id;
+    } else if (req.query.officerId && mongoose.Types.ObjectId.isValid(req.query.officerId)) {
+      filter.assignedOfficer = req.query.officerId;
+    }
+    // Admins see all schedules if not filtered
+  } else if (req.user.role === USER_ROLES.GATC_OFFICER) {
+    filter.$or = [
+      { assignedOfficer: req.user._id },
+      { assignedGATC: req.user._id },
+    ];
   } else {
+    // Legal Metrology Officer
     filter.assignedOfficer = req.user._id;
   }
 
+  // Handle status filter
+  if (req.query.status && req.query.status !== 'ALL') {
+    filter.status = req.query.status;
+  }
+
+  // Handle date filters if provided
+  const startDate = req.query.startDate || req.query.fromDate || req.query.start;
+  const endDate = req.query.endDate || req.query.toDate || req.query.end;
+  if (startDate && endDate) {
+    filter.scheduledDate = {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate),
+    };
+  } else if (startDate) {
+    filter.scheduledDate = { $gte: new Date(startDate) };
+  } else if (endDate) {
+    filter.scheduledDate = { $lte: new Date(endDate) };
+  }
+
   const schedules = await VerificationSchedule.find(filter)
-    .populate('application', 'applicationNumber currentStatus')
-    .populate('instrument', 'instrumentId category serialNumber')
-    .populate('stakeholder', 'businessName tradeLicenseNumber')
-    .populate('verificationCenter', 'name code')
+    .populate('application', 'applicationNumber currentStatus verificationLocation applicationType')
+    .populate('instrument', 'instrumentId category serialNumber manufacturer')
+    .populate('stakeholder', 'businessName tradeLicenseNumber legalName email phone')
+    .populate('assignedOfficer', 'name email phone designation')
+    .populate('assignedFieldOfficer', 'name email phone designation')
+    .populate('verificationCenter', 'name code address')
     .sort({ scheduledDate: 1 });
 
-  return ApiResponse.success(res, schedules, 'User schedules retrieved successfully');
+  return ApiResponse.success(res, schedules || [], 'User schedules retrieved successfully');
 });
 
 export const getCalendarSchedules = asyncHandler(async (req, res) => {
