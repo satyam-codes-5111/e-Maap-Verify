@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Clean Solid White Background (100% Code-Based XML - ZERO RASTER IMAGES) -->
+    <item android:drawable="@color/splash_background" />
+
+    <!-- Top Edge-to-Edge Tricolor Bar -->
+    <item
+        android:gravity="top"
+        android:height="14dp"
+        android:drawable="@drawable/splash_top_tricolor" />
+
+    <!-- Center Precision Legal Metrology Vector Emblem -->
+    <item
+        android:gravity="center"
+        android:width="120dp"
+        android:height="120dp"
+        android:drawable="@drawable/ic_metrology_scale" />
+
+    <!-- Bottom Edge-to-Edge Tricolor Bar -->
+    <item
+        android:gravity="bottom"
+        android:height="16dp"
+        android:drawable="@drawable/splash_bottom_tricolor" />
+</layer-list>

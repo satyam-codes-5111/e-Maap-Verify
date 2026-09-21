@@ -52,10 +52,18 @@ export const getUsers = asyncHandler(async (req, res) => {
     ];
   }
 
-  const [users, total] = await Promise.all([
-    User.find(filter).sort(sort).skip(skip).limit(limit),
+  const [rawUsers, total] = await Promise.all([
+    User.find(filter).sort(sort).skip(skip).limit(limit).lean(),
     User.countDocuments(filter),
   ]);
+
+  const users = rawUsers.map((u) => {
+    const { password, __v, ...rest } = u;
+    return {
+      ...rest,
+      status: rest.isActive ? 'ACTIVE' : 'INACTIVE',
+    };
+  });
 
   return ApiResponse.success(
     res,

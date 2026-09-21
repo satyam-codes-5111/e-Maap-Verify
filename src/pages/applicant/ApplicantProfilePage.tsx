@@ -1,294 +1,403 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { stakeholderApi } from '../../services/stakeholderApi';
+import { dashboardApi } from '../../services/dashboardApi';
 import { StakeholderItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { Toast, ToastMessage } from '../../components/common/Toast';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
-import { ErrorState } from '../../components/common/ErrorState';
-import { Building2, Save } from 'lucide-react';
-
-interface ProfileFormInputs {
-  businessName: string;
-  tradeLicenseNumber?: string;
-  gstNumber?: string;
-  panNumber?: string;
-  businessType?: string;
-  line1?: string;
-  city?: string;
-  district?: string;
-  state?: string;
-  pincode?: string;
-  contactName?: string;
-  contactPhone?: string;
-  contactEmail?: string;
-}
+import { BusinessProfileCard } from '../../components/applicant/BusinessProfileCard';
+import { FileUploader } from '../../components/common/FileUploader';
+import { Toast, ToastMessage } from '../../components/common/Toast';
+import {
+  ArrowLeft,
+  FileText,
+  UploadCloud,
+  ShieldCheck,
+  Building2,
+  MapPin,
+  Phone,
+  Mail,
+  User,
+  Scale,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Edit3,
+  X,
+  FileCheck2,
+} from 'lucide-react';
 
 export const ApplicantProfilePage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect');
+
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<StakeholderItem | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isMissingProfile, setIsMissingProfile] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [counts, setCounts] = useState({
+    totalInstruments: 0,
+    verifiedInstruments: 0,
+    pendingVerification: 0,
+    expiredCertificates: 0,
+  });
+
+  const [selectedDoc, setSelectedDoc] = useState<File | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<ProfileFormInputs>();
-
-  const fetchProfile = async () => {
+  const fetchProfileAndStats = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await stakeholderApi.getMyProfile();
-      if (res.success && res.data) {
-        setProfile(res.data);
-        reset({
-          businessName: res.data.businessName || '',
-          tradeLicenseNumber: res.data.tradeLicenseNumber || '',
-          gstNumber: res.data.gstNumber || '',
-          panNumber: res.data.panNumber || '',
-          businessType: res.data.businessType || 'TRADER',
-          line1: res.data.registeredAddress?.line1 || '',
-          city: res.data.registeredAddress?.city || '',
-          district: res.data.registeredAddress?.district || '',
-          state: res.data.registeredAddress?.state || '',
-          pincode: res.data.registeredAddress?.pincode || '',
-          contactName: res.data.contactPerson?.name || '',
-          contactPhone: res.data.contactPerson?.phone || '',
-          contactEmail: res.data.contactPerson?.email || '',
-        });
+      const [profileRes, dashRes] = await Promise.all([
+        stakeholderApi.getMyProfile().catch(() => ({ success: false, data: null })),
+        dashboardApi.getStakeholderDashboard().catch(() => ({ success: false, data: null })),
+      ]);
+
+      if (profileRes.success && profileRes.data) {
+        setProfile(profileRes.data);
+        setIsMissingProfile(false);
       } else {
-        setError(res.message || 'Profile could not be loaded');
+        setProfile(null);
+        setIsMissingProfile(true);
       }
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
+
+      if (dashRes.success && dashRes.data?.counts) {
+        setCounts({
+          totalInstruments: dashRes.data.counts.totalInstruments || 0,
+          verifiedInstruments: dashRes.data.counts.verifiedInstruments || 0,
+          pendingVerification: dashRes.data.counts.pendingVerification || 0,
+          expiredCertificates: dashRes.data.counts.expiredCertificates || 0,
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProfile();
+    fetchProfileAndStats();
   }, []);
 
-  const onSubmit = async (values: ProfileFormInputs) => {
-    setSaving(true);
+  const handleUploadKycDoc = async () => {
+    if (!selectedDoc) return;
+    setUploadingDoc(true);
     try {
-      const payload: Partial<StakeholderItem> = {
-        businessName: values.businessName,
-        tradeLicenseNumber: values.tradeLicenseNumber,
-        gstNumber: values.gstNumber,
-        panNumber: values.panNumber,
-        businessType: values.businessType,
-        registeredAddress: {
-          line1: values.line1,
-          city: values.city,
-          district: values.district,
-          state: values.state,
-          pincode: values.pincode,
-        },
-        contactPerson: {
-          name: values.contactName,
-          phone: values.contactPhone,
-          email: values.contactEmail,
-        },
-      };
-
-      const res = await stakeholderApi.updateMyProfile(payload);
-      if (res.success && res.data) {
-        setProfile(res.data);
+      const formData = new FormData();
+      formData.append('document', selectedDoc);
+      formData.append('docType', 'TRADE_LICENSE');
+      const res = await stakeholderApi.uploadKycDoc(formData);
+      if (res.success) {
         setToast({
           id: String(Date.now()),
           type: 'success',
-          title: 'Profile Updated',
-          message: 'Business profile and registered jurisdiction updated successfully.',
+          title: 'Document Uploaded',
+          message: 'KYC statutory establishment document uploaded successfully.',
         });
+        setSelectedDoc(null);
+        fetchProfileAndStats();
       }
     } catch (err: unknown) {
       setToast({
         id: String(Date.now()),
         type: 'error',
-        title: 'Update Error',
+        title: 'Upload Error',
         message: getErrorMessage(err),
       });
     } finally {
-      setSaving(false);
+      setUploadingDoc(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <PageHeader title="Business Profile" />
         <LoadingSkeleton rows={4} />
       </div>
     );
   }
 
-  if (error || !profile) {
-    return <ErrorState message={error || 'Failed to load profile'} onRetry={fetchProfile} />;
-  }
-
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      <PageHeader
-        title="Business Profile & Jurisdiction"
-        description="Official establishment details and registered premise information"
-        badge={<StatusBadge status={profile.kycStatus} size="md" />}
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/applicant/dashboard' },
-          { label: 'Business Profile' },
-        ]}
-      />
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Establishment Info */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
-            <Building2 className="w-4 h-4 text-teal-700" />
-            <span>Establishment Information</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Business Legal Name *
-              </label>
-              <input
-                type="text"
-                {...register('businessName', { required: 'Business name is required' })}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-              {errors.businessName && (
-                <p className="text-[11px] text-rose-600 mt-1">{errors.businessName.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Business Type</label>
-              <select
-                {...register('businessType')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              >
-                <option value="TRADER">Commercial Trader / Retailer</option>
-                <option value="MANUFACTURER">Manufacturer</option>
-                <option value="DEALER">Authorized Dealer</option>
-                <option value="REPAIRER">Certified Repairer</option>
-                <option value="PETROLEUM_OUTLET">Petroleum Dispensing Outlet</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Trade License No.</label>
-              <input
-                type="text"
-                {...register('tradeLicenseNumber')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">GSTIN</label>
-              <input
-                type="text"
-                {...register('gstNumber')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">PAN Number</label>
-              <input
-                type="text"
-                {...register('panNumber')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Registered Address */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
-            Registered Commercial Address
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Address Line</label>
-              <input
-                type="text"
-                {...register('line1')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">City</label>
-              <input
-                type="text"
-                {...register('city')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">District</label>
-              <input
-                type="text"
-                {...register('district')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">State</label>
-              <input
-                type="text"
-                {...register('state')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Pincode</label>
-              <input
-                type="text"
-                {...register('pincode')}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button */}
-        <div className="flex justify-end pt-2">
+      {returnUrl && (
+        <div>
           <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2 text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition shadow-xs flex items-center gap-2 disabled:opacity-50"
+            type="button"
+            onClick={() => navigate(returnUrl)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#123B6D] hover:underline transition"
           >
-            {saving ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save Profile Changes</span>
-              </>
-            )}
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to Instrument Registration</span>
           </button>
         </div>
-      </form>
+      )}
+
+      <PageHeader
+        title={
+          isMissingProfile
+            ? 'Complete Stakeholder Business Profile'
+            : 'Business Profile & Statutory Compliance'
+        }
+        description="Official commercial establishment registration under the Legal Metrology Act, 2009"
+        badge={
+          profile?.kycStatus ? <StatusBadge status={profile.kycStatus} size="md" /> : undefined
+        }
+        breadcrumbs={[
+          { label: 'Dashboard', to: '/applicant/dashboard' },
+          { label: 'Business Profile' },
+        ]}
+        actions={
+          !isMissingProfile && profile ? (
+            <button
+              type="button"
+              onClick={() => setIsEditing((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[#123B6D] bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition"
+            >
+              {isEditing ? <X className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
+              <span>{isEditing ? 'Cancel Editing' : 'Edit Profile'}</span>
+            </button>
+          ) : undefined
+        }
+      />
+
+      {/* Statutory Compliance Summary KPI Cards */}
+      {!isMissingProfile && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-50 text-[#123B6D] flex items-center justify-center shrink-0">
+              <Scale className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Instruments</span>
+              <p className="text-xl font-black text-slate-900">{counts.totalInstruments}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Verified & Stamped</span>
+              <p className="text-xl font-black text-emerald-700">{counts.verifiedInstruments}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Pending Reverifications</span>
+              <p className="text-xl font-black text-amber-800">
+                {counts.pendingVerification + counts.expiredCertificates}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Editing Mode or Missing Profile: Show Form */}
+      {isMissingProfile || isEditing ? (
+        <div className="space-y-4">
+          {isEditing && (
+            <div className="flex items-center justify-between bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-200 text-xs text-[#123B6D]">
+              <span className="font-semibold">You are updating your registered business details.</span>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="font-bold underline"
+              >
+                Done
+              </button>
+            </div>
+          )}
+
+          <BusinessProfileCard
+            initialProfile={profile}
+            isInitialSetup={isMissingProfile}
+            redirectToRegister={Boolean(returnUrl || isMissingProfile)}
+            onSuccess={(savedProfile) => {
+              setProfile(savedProfile);
+              setIsMissingProfile(false);
+              setIsEditing(false);
+              setToast({
+                id: String(Date.now()),
+                type: 'success',
+                title: 'Profile Updated',
+                message: 'Business profile successfully updated with Legal Metrology records.',
+              });
+            }}
+          />
+        </div>
+      ) : profile ? (
+        /* Read-Only Display Profile */
+        <div className="space-y-6">
+          {/* Establishment Details */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#123B6D]" />
+                <h3 className="text-sm font-bold text-slate-900">Commercial Establishment Particulars</h3>
+              </div>
+              <span className="text-xs font-mono font-bold text-[#123B6D] bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+                {profile.businessType || 'COMMERCIAL_ESTABLISHMENT'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Business / Legal Trade Name</span>
+                <p className="text-sm font-bold text-slate-900 mt-0.5">{profile.businessName}</p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Trade License Number</span>
+                <p className="font-mono font-bold text-slate-800 mt-0.5">{profile.tradeLicenseNumber || 'N/A'}</p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">GSTIN / Registration</span>
+                <p className="font-mono text-slate-700 mt-0.5">{profile.gstNumber || 'Not Provided'}</p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Permanent Account Number (PAN)</span>
+                <p className="font-mono text-slate-700 mt-0.5">{profile.panNumber || 'Not Provided'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Registered Premise Address */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <MapPin className="w-4 h-4 text-[#123B6D]" />
+              <h3 className="text-sm font-bold text-slate-900">Registered Premises & Enforcement Jurisdiction</h3>
+            </div>
+
+            <div className="text-xs text-slate-700 space-y-1">
+              <p className="font-medium text-slate-900">
+                {profile.registeredAddress?.street || profile.registeredAddress?.line1 || 'Main Street'}
+              </p>
+              <p>
+                {profile.registeredAddress?.city}, {profile.registeredAddress?.district},{' '}
+                {profile.registeredAddress?.state} - {profile.registeredAddress?.pincode}
+              </p>
+              {profile.registeredAddress?.latitude && profile.registeredAddress?.longitude && (
+                <p className="text-[11px] font-mono text-emerald-700 pt-1">
+                  GPS Coordinates: {profile.registeredAddress.latitude.toFixed(5)},{' '}
+                  {profile.registeredAddress.longitude.toFixed(5)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Contact Person */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <User className="w-4 h-4 text-[#123B6D]" />
+              <h3 className="text-sm font-bold text-slate-900">Designated Signatory & Contact Details</h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Full Name</span>
+                <p className="font-bold text-slate-900 mt-0.5">
+                  {profile.contactPerson?.name || 'Authorized Signatory'}
+                </p>
+                {profile.contactPerson?.designation && (
+                  <p className="text-slate-500 text-[11px]">{profile.contactPerson.designation}</p>
+                )}
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Primary Contact Phone</span>
+                <p className="font-mono text-slate-800 mt-0.5">{profile.contactPerson?.phone || 'N/A'}</p>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Official Email</span>
+                <p className="font-mono text-slate-800 mt-0.5">{profile.contactPerson?.email || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Statutory KYC Verification Documents */}
+      {!isMissingProfile && profile && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Statutory KYC & Trade Registration Documents
+              </h3>
+              <p className="text-xs text-slate-500">
+                Mandatory under Rule 11 of the Legal Metrology (General) Rules, 2011
+              </p>
+            </div>
+            <ShieldCheck className="w-5 h-5 text-emerald-700" />
+          </div>
+
+          {profile.kycDocuments && profile.kycDocuments.length > 0 ? (
+            <div className="space-y-2">
+              {profile.kycDocuments.map((doc, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-slate-500" />
+                    <div>
+                      <p className="font-bold text-slate-800">
+                        {doc.docType?.replace(/_/g, ' ') || 'Trade License'}
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        Uploaded on {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : 'Active'}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusBadge status={doc.verificationStatus || 'VERIFIED'} size="sm" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500 italic">
+              No statutory documents uploaded yet. Upload your Trade License or Factory Registration.
+            </p>
+          )}
+
+          <div className="pt-3 border-t border-slate-100 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800">Upload Trade / Establishment License</h4>
+            <FileUploader
+              accept=".pdf,image/*"
+              maxSizeMb={5}
+              onFileSelected={(f) => setSelectedDoc(f)}
+              description="PDF or image up to 5MB"
+            />
+            {selectedDoc && (
+              <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <span className="text-xs font-semibold text-slate-800">{selectedDoc.name}</span>
+                <button
+                  type="button"
+                  disabled={uploadingDoc}
+                  onClick={handleUploadKycDoc}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0D2B4F] rounded-md transition disabled:opacity-50"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>{uploadingDoc ? 'Uploading...' : 'Upload Document'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

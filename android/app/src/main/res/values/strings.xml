@@ -6,4 +6,13 @@
     <string name="custom_url_scheme">gov.in.doca.emaap</string>
     <string name="camera_permission_rationale">Camera access is required for Legal Metrology instrument evidence and QR certificate verification.</string>
     <string name="location_permission_rationale">Location access is required for authorized field verification and inspection evidence.</string>
+    <string name="splash_app_title">e-Maap Verify</string>
+    <string name="splash_hindi_title">ई-मााप सत्यापन पोर्टल</string>
+    <string name="splash_dept_hindi">उपभोक्ता मामले विभाग</string>
+    <string name="splash_division">LEGAL METROLOGY</string>
+    <string name="splash_dept">Department of Consumer Affairs</string>
+    <string name="splash_ministry">Ministry of Consumer Affairs, Food &amp; Public Distribution</string>
+    <string name="splash_gov">Government of India</string>
+    <string name="splash_badge">SIH Problem Statement: 26036</string>
+    <string name="splash_sih_problem">SIH Problem Statement: 26036</string>
 </resources>

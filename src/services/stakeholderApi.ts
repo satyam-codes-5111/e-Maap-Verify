@@ -12,6 +12,30 @@ export const stakeholderApi = {
     return res.data;
   },
 
+  createMyProfile: async (data: any) => {
+    const res = await api.post<ApiResponse<StakeholderItem>>('/stakeholders/me', data);
+    return res.data;
+  },
+
+  reverseGeocode: async (lat: number, lon: number) => {
+    const res = await api.get<
+      ApiResponse<{
+        latitude: number;
+        longitude: number;
+        street: string;
+        addressLine: string;
+        city: string;
+        district: string;
+        state: string;
+        pincode: string;
+        displayName?: string;
+      }>
+    >('/stakeholders/reverse-geocode', {
+      params: { lat, lon },
+    });
+    return res.data;
+  },
+
   uploadKycDoc: async (formData: FormData) => {
     const res = await api.post<ApiResponse<any>>('/stakeholders/me/upload-kyc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

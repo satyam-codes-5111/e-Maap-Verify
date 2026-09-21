@@ -276,6 +276,10 @@ var init_constants = __esm({
       CERTIFICATE_EXPIRED: "CERTIFICATE_EXPIRED",
       VERIFICATION_DUE: "VERIFICATION_DUE",
       VERIFICATION_OVERDUE: "VERIFICATION_OVERDUE",
+      VERIFICATION_REMINDER: "VERIFICATION_REMINDER",
+      VERIFICATION_WARNING: "VERIFICATION_WARNING",
+      VERIFICATION_URGENT: "VERIFICATION_URGENT",
+      VERIFICATION_EXPIRED: "VERIFICATION_EXPIRED",
       SYSTEM_ALERT: "SYSTEM_ALERT",
       SYSTEM_NOTIFICATION: "SYSTEM_NOTIFICATION"
     };
@@ -284,7 +288,8 @@ var init_constants = __esm({
       LOW: "LOW",
       MEDIUM: "MEDIUM",
       HIGH: "HIGH",
-      URGENT: "URGENT"
+      URGENT: "URGENT",
+      CRITICAL: "CRITICAL"
     };
     NOTIFICATION_PRIORITY_LIST = Object.values(NOTIFICATION_PRIORITIES);
     DYNAMIC_CERTIFICATE_STATUSES = {
@@ -404,7 +409,9 @@ var init_constants = __esm({
       NOTIFICATION_READ: "NOTIFICATION_READ",
       NOTIFICATION_PREFERENCE_UPDATED: "NOTIFICATION_PREFERENCE_UPDATED",
       EXPIRY_CHECK_EXECUTED: "EXPIRY_CHECK_EXECUTED",
-      DUE_DATE_ALERT_DISPATCHED: "DUE_DATE_ALERT_DISPATCHED"
+      DUE_DATE_ALERT_DISPATCHED: "DUE_DATE_ALERT_DISPATCHED",
+      INSTRUMENT_EXPIRED: "INSTRUMENT_EXPIRED",
+      EXPIRY_ALERT_DISPATCHED: "EXPIRY_ALERT_DISPATCHED"
     };
   }
 });
@@ -759,6 +766,8 @@ var init_Instrument = __esm({
     });
     instrumentSchema.index({ manufacturer: 1, serialNumber: 1 });
     instrumentSchema.index({ stakeholder: 1, status: 1 });
+    instrumentSchema.index({ stakeholder: 1, nextVerificationDueDate: 1 });
+    instrumentSchema.index({ stakeholder: 1, createdAt: -1 });
     instrumentSchema.index({ "installationAddress.district": 1, status: 1 });
     instrumentSchema.index({ nextVerificationDueDate: 1, status: 1 });
     instrumentSchema.index({ createdAt: -1 });
@@ -927,6 +936,7 @@ var init_VerificationApplication = __esm({
       return this.documents;
     });
     verificationApplicationSchema.index({ stakeholder: 1, currentStatus: 1 });
+    verificationApplicationSchema.index({ stakeholder: 1, createdAt: -1 });
     verificationApplicationSchema.index({ instrument: 1, currentStatus: 1 });
     verificationApplicationSchema.index({ assignedLMO: 1, currentStatus: 1 });
     verificationApplicationSchema.index({ createdAt: -1 });
@@ -1409,8 +1419,113 @@ var init_Certificate = __esm({
     certificateSchema.index({ validUntil: 1, certificateStatus: 1 });
     certificateSchema.index({ validUntil: 1, status: 1 });
     certificateSchema.index({ stakeholder: 1, certificateStatus: 1 });
+    certificateSchema.index({ stakeholder: 1, status: 1 });
+    certificateSchema.index({ stakeholder: 1, createdAt: -1 });
     certificateSchema.index({ createdAt: -1 });
     Certificate = import_mongoose6.default.model("Certificate", certificateSchema);
+  }
+});
+
+// backend/models/AuditLog.js
+var import_mongoose7, auditLogSchema, AuditLog;
+var init_AuditLog = __esm({
+  "backend/models/AuditLog.js"() {
+    import_mongoose7 = __toESM(require("mongoose"), 1);
+    auditLogSchema = new import_mongoose7.default.Schema(
+      {
+        user: {
+          type: import_mongoose7.default.Schema.Types.ObjectId,
+          ref: "User",
+          index: true
+        },
+        userRole: {
+          type: String,
+          index: true
+        },
+        userEmail: {
+          type: String
+        },
+        action: {
+          type: String,
+          required: true,
+          index: true
+        },
+        entity: {
+          type: String,
+          required: true,
+          index: true
+        },
+        entityId: {
+          type: String,
+          index: true
+        },
+        ipAddress: {
+          type: String
+        },
+        userAgent: {
+          type: String
+        },
+        metadata: {
+          type: import_mongoose7.default.Schema.Types.Mixed,
+          default: {}
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+          index: true
+        }
+      },
+      {
+        timestamps: false,
+        versionKey: false
+      }
+    );
+    auditLogSchema.index({ entity: 1, entityId: 1 });
+    auditLogSchema.index({ action: 1, timestamp: -1 });
+    auditLogSchema.index({ user: 1, timestamp: -1 });
+    AuditLog = import_mongoose7.default.model("AuditLog", auditLogSchema);
+  }
+});
+
+// backend/services/auditService.js
+async function logAuditEvent({
+  user = null,
+  userRole = null,
+  userEmail = null,
+  action,
+  entity,
+  entityId = null,
+  ipAddress = null,
+  userAgent = null,
+  metadata = {}
+}, session = null) {
+  try {
+    const sanitizedMetadata = { ...metadata };
+    delete sanitizedMetadata.password;
+    delete sanitizedMetadata.token;
+    delete sanitizedMetadata.secret;
+    const logEntry = new AuditLog({
+      user: user?._id || user,
+      userRole: userRole || user?.role,
+      userEmail: userEmail || user?.email,
+      action,
+      entity,
+      entityId: entityId ? String(entityId) : null,
+      ipAddress,
+      userAgent,
+      metadata: sanitizedMetadata,
+      timestamp: /* @__PURE__ */ new Date()
+    });
+    await logEntry.save(session ? { session } : void 0);
+    return logEntry;
+  } catch (error) {
+    console.error("[AUDIT LOG ERROR] Failed to record audit entry:", error.message);
+    return null;
+  }
+}
+var init_auditService = __esm({
+  "backend/services/auditService.js"() {
+    init_AuditLog();
   }
 });
 
@@ -1657,6 +1772,901 @@ var init_VerificationResult = __esm({
       "VerificationResult",
       verificationResultSchema
     );
+  }
+});
+
+// backend/models/Notification.js
+var import_mongoose13, notificationSchema, Notification;
+var init_Notification = __esm({
+  "backend/models/Notification.js"() {
+    import_mongoose13 = __toESM(require("mongoose"), 1);
+    init_constants();
+    notificationSchema = new import_mongoose13.default.Schema(
+      {
+        recipient: {
+          type: import_mongoose13.default.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+          index: true
+        },
+        type: {
+          type: String,
+          enum: NOTIFICATION_TYPE_LIST,
+          default: NOTIFICATION_TYPES.SYSTEM_NOTIFICATION,
+          required: true,
+          index: true
+        },
+        title: {
+          type: String,
+          required: true,
+          trim: true
+        },
+        message: {
+          type: String,
+          required: true,
+          trim: true
+        },
+        instrument: {
+          type: import_mongoose13.default.Schema.Types.ObjectId,
+          ref: "Instrument",
+          index: true
+        },
+        application: {
+          type: import_mongoose13.default.Schema.Types.ObjectId,
+          ref: "VerificationApplication",
+          index: true
+        },
+        dueDate: {
+          type: Date,
+          index: true
+        },
+        relatedEntityType: {
+          type: String,
+          trim: true,
+          index: true
+        },
+        relatedEntityId: {
+          type: import_mongoose13.default.Schema.Types.ObjectId,
+          index: true
+        },
+        priority: {
+          type: String,
+          enum: NOTIFICATION_PRIORITY_LIST,
+          default: NOTIFICATION_PRIORITIES.MEDIUM,
+          index: true
+        },
+        link: {
+          type: String,
+          trim: true
+        },
+        isRead: {
+          type: Boolean,
+          default: false,
+          index: true
+        },
+        readAt: {
+          type: Date
+        },
+        expiresAt: {
+          type: Date,
+          index: true
+        },
+        metadata: {
+          type: import_mongoose13.default.Schema.Types.Mixed,
+          default: {}
+        }
+      },
+      {
+        timestamps: true
+      }
+    );
+    notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
+    notificationSchema.index({ recipient: 1, priority: 1, createdAt: -1 });
+    notificationSchema.index({ relatedEntityType: 1, relatedEntityId: 1, type: 1 });
+    notificationSchema.index({ recipient: 1, instrument: 1, type: 1, dueDate: 1 });
+    notificationSchema.index({ instrument: 1, type: 1 });
+    notificationSchema.index({ instrument: 1, isRead: 1 });
+    Notification = import_mongoose13.default.model("Notification", notificationSchema);
+  }
+});
+
+// backend/models/NotificationPreference.js
+var import_mongoose14, notificationPreferenceSchema, NotificationPreference;
+var init_NotificationPreference = __esm({
+  "backend/models/NotificationPreference.js"() {
+    import_mongoose14 = __toESM(require("mongoose"), 1);
+    notificationPreferenceSchema = new import_mongoose14.default.Schema(
+      {
+        user: {
+          type: import_mongoose14.default.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+          unique: true,
+          index: true
+        },
+        inAppEnabled: {
+          type: Boolean,
+          default: true
+        },
+        emailEnabled: {
+          type: Boolean,
+          default: true
+        },
+        reminderWindows: {
+          day60: { type: Boolean, default: true },
+          day30: { type: Boolean, default: true },
+          day7: { type: Boolean, default: true },
+          onExpiry: { type: Boolean, default: true }
+        },
+        categories: {
+          certificateExpiry: { type: Boolean, default: true },
+          verificationDue: { type: Boolean, default: true },
+          workflowUpdates: { type: Boolean, default: true },
+          systemAlerts: { type: Boolean, default: true }
+        }
+      },
+      {
+        timestamps: true
+      }
+    );
+    NotificationPreference = import_mongoose14.default.model(
+      "NotificationPreference",
+      notificationPreferenceSchema
+    );
+  }
+});
+
+// backend/services/emailService.js
+async function sendEmail({ to, subject, html, text }) {
+  if (!to) return null;
+  try {
+    if (transporter) {
+      const info = await transporter.sendMail({
+        from: `"${ENV.SMTP_FROM}" <${ENV.SMTP_FROM}>`,
+        to,
+        subject,
+        text,
+        html
+      });
+      return info;
+    } else {
+      console.log(`[EMAIL DISPATCH - DEV] To: ${to} | Subject: ${subject}`);
+      return { messageId: "simulated-dev-id" };
+    }
+  } catch (error) {
+    console.error(`[EMAIL ERROR] Failed to send email to ${to}:`, error.message);
+    return null;
+  }
+}
+var import_nodemailer, transporter;
+var init_emailService = __esm({
+  "backend/services/emailService.js"() {
+    import_nodemailer = __toESM(require("nodemailer"), 1);
+    init_env();
+    transporter = null;
+    if (ENV.SMTP_HOST && ENV.SMTP_USER) {
+      transporter = import_nodemailer.default.createTransport({
+        host: ENV.SMTP_HOST,
+        port: ENV.SMTP_PORT,
+        secure: ENV.SMTP_PORT === 465,
+        auth: {
+          user: ENV.SMTP_USER,
+          pass: ENV.SMTP_PASSWORD
+        }
+      });
+    }
+  }
+});
+
+// backend/services/notificationService.js
+async function getNotificationPreferences(userId) {
+  let pref = await NotificationPreference.findOne({ user: userId });
+  if (!pref) {
+    pref = await NotificationPreference.create({
+      user: userId,
+      inAppEnabled: true,
+      emailEnabled: true,
+      reminderWindows: {
+        day60: true,
+        day30: true,
+        day7: true,
+        onExpiry: true
+      },
+      categories: {
+        certificateExpiry: true,
+        verificationDue: true,
+        workflowUpdates: true,
+        systemAlerts: true
+      }
+    });
+  }
+  return pref;
+}
+async function updateNotificationPreferences(userId, updates = {}) {
+  const pref = await getNotificationPreferences(userId);
+  if (typeof updates.inAppEnabled === "boolean") {
+    pref.inAppEnabled = updates.inAppEnabled;
+  }
+  if (typeof updates.emailEnabled === "boolean") {
+    pref.emailEnabled = updates.emailEnabled;
+  }
+  if (updates.reminderWindows && typeof updates.reminderWindows === "object") {
+    pref.reminderWindows = {
+      ...pref.reminderWindows?.toObject?.() || pref.reminderWindows,
+      ...updates.reminderWindows
+    };
+  }
+  if (updates.categories && typeof updates.categories === "object") {
+    pref.categories = {
+      ...pref.categories?.toObject?.() || pref.categories,
+      ...updates.categories
+    };
+  }
+  await pref.save();
+  return pref;
+}
+function resolveDefaultPriority(type) {
+  if (type === NOTIFICATION_TYPES.VERIFICATION_EXPIRED) {
+    return NOTIFICATION_PRIORITIES.CRITICAL;
+  }
+  if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRED || type === NOTIFICATION_TYPES.VERIFICATION_OVERDUE || type === NOTIFICATION_TYPES.VERIFICATION_FAILED) {
+    return NOTIFICATION_PRIORITIES.URGENT;
+  }
+  if (type === NOTIFICATION_TYPES.VERIFICATION_URGENT || type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_7 || type === NOTIFICATION_TYPES.VERIFICATION_DUE || type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30 || type === NOTIFICATION_TYPES.APPLICATION_REJECTED) {
+    return NOTIFICATION_PRIORITIES.HIGH;
+  }
+  if (type === NOTIFICATION_TYPES.VERIFICATION_WARNING || type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_60 || type === NOTIFICATION_TYPES.CERTIFICATE_ISSUED || type === NOTIFICATION_TYPES.CERTIFICATE_GENERATED || type === NOTIFICATION_TYPES.VERIFICATION_PASSED || type === NOTIFICATION_TYPES.APPLICATION_APPROVED || type === NOTIFICATION_TYPES.SCHEDULE_CREATED || type === NOTIFICATION_TYPES.SCHEDULE_CHANGED || type === NOTIFICATION_TYPES.INSPECTION_ASSIGNED || type === NOTIFICATION_TYPES.INSPECTION_COMPLETED) {
+    return NOTIFICATION_PRIORITIES.MEDIUM;
+  }
+  return NOTIFICATION_PRIORITIES.LOW;
+}
+async function createNotification({
+  recipientId,
+  recipient,
+  type = NOTIFICATION_TYPES.SYSTEM_NOTIFICATION,
+  title,
+  message,
+  instrument,
+  application,
+  dueDate,
+  relatedEntityType,
+  relatedEntityId,
+  priority,
+  link = "",
+  metadata = {},
+  expiresAt,
+  sendEmailAlert = false
+}, session = null) {
+  try {
+    const targetUserId = recipient || recipientId;
+    if (!targetUserId) {
+      console.warn("[NOTIFICATION SERVICE] Warning: Missing recipient for notification:", title);
+      return null;
+    }
+    const preferences = await getNotificationPreferences(targetUserId);
+    if (preferences.categories) {
+      if ((type.startsWith("CERTIFICATE_EXPIR") || type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRED) && preferences.categories.certificateExpiry === false) {
+        return null;
+      }
+      if ((type === NOTIFICATION_TYPES.VERIFICATION_DUE || type === NOTIFICATION_TYPES.VERIFICATION_OVERDUE) && preferences.categories.verificationDue === false) {
+        return null;
+      }
+      if ((type.startsWith("APPLICATION_") || type.startsWith("SCHEDULE_") || type.startsWith("INSPECTION_") || type.startsWith("VERIFICATION_")) && preferences.categories.workflowUpdates === false) {
+        return null;
+      }
+      if (type === NOTIFICATION_TYPES.SYSTEM_ALERT && preferences.categories.systemAlerts === false) {
+        return null;
+      }
+    }
+    if (preferences.reminderWindows) {
+      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_60 && preferences.reminderWindows.day60 === false) {
+        return null;
+      }
+      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30 && preferences.reminderWindows.day30 === false) {
+        return null;
+      }
+      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_7 && preferences.reminderWindows.day7 === false) {
+        return null;
+      }
+      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRED && preferences.reminderWindows.onExpiry === false) {
+        return null;
+      }
+    }
+    if (preferences.inAppEnabled === false) {
+      return null;
+    }
+    const resolvedPriority = priority || resolveDefaultPriority(type);
+    const notification = new Notification({
+      recipient: targetUserId,
+      type,
+      title,
+      message,
+      instrument: instrument || (relatedEntityType === "Instrument" ? relatedEntityId : void 0),
+      application: application || (relatedEntityType === "VerificationApplication" ? relatedEntityId : void 0),
+      dueDate: dueDate || metadata?.dueDate || void 0,
+      relatedEntityType,
+      relatedEntityId,
+      priority: resolvedPriority,
+      link,
+      metadata,
+      expiresAt
+    });
+    await notification.save(session ? { session } : void 0);
+    if (sendEmailAlert && preferences.emailEnabled !== false) {
+      User.findById(targetUserId).select("email name").then((user) => {
+        if (user && user.email) {
+          sendEmail({
+            to: user.email,
+            subject: `[DoCA Legal Metrology] ${title}`,
+            text: `${message}
+
+Access details at: ${link}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b;">
+                  <h2 style="color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Legal Metrology Verification Alert</h2>
+                  <p>Dear ${user.name},</p>
+                  <div style="background-color: #f8fafc; border-left: 4px solid #0284c7; padding: 12px 16px; margin: 16px 0;">
+                    <h4 style="margin: 0 0 6px 0; color: #0369a1;">${title}</h4>
+                    <p style="margin: 0;">${message}</p>
+                  </div>
+                  ${link ? `<p><a href="${link}" style="display: inline-block; padding: 10px 18px; background-color: #0284c7; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: bold;">View Details</a></p>` : ""}
+                  <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 24px;" />
+                  <p style="font-size: 12px; color: #64748b;">Department of Consumer Affairs (DoCA), Ministry of Consumer Affairs, Food & Public Distribution, Government of India.</p>
+                </div>
+              `
+          }).catch((err) => console.error("[EMAIL ERROR]", err.message));
+        }
+      }).catch((err) => console.error("[NOTIFICATION USER LOOKUP ERROR]", err.message));
+    }
+    return notification;
+  } catch (error) {
+    console.error("[NOTIFICATION SERVICE ERROR] Failed to create notification:", error.message);
+    return null;
+  }
+}
+var init_notificationService = __esm({
+  "backend/services/notificationService.js"() {
+    init_Notification();
+    init_NotificationPreference();
+    init_User();
+    init_emailService();
+    init_constants();
+  }
+});
+
+// backend/services/expiryService.js
+function calculateCertificateDynamicStatus(certificate, expiringDays = 30, referenceDate = /* @__PURE__ */ new Date()) {
+  if (!certificate) return null;
+  const certStatus = certificate.certificateStatus || certificate.status;
+  if (certStatus === CERTIFICATE_STATUSES.REVOKED || certificate.revokedAt) {
+    return DYNAMIC_CERTIFICATE_STATUSES.REVOKED;
+  }
+  if (certStatus === CERTIFICATE_STATUSES.CANCELLED || certificate.cancelledAt) {
+    return DYNAMIC_CERTIFICATE_STATUSES.CANCELLED;
+  }
+  if (!certificate.validUntil) {
+    return certStatus || DYNAMIC_CERTIFICATE_STATUSES.ACTIVE;
+  }
+  const now = new Date(referenceDate);
+  const validUntil = new Date(certificate.validUntil);
+  if (validUntil.getTime() < now.getTime()) {
+    return DYNAMIC_CERTIFICATE_STATUSES.EXPIRED;
+  }
+  const diffDays = Math.ceil((validUntil.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24));
+  if (diffDays <= expiringDays && diffDays >= 0) {
+    return DYNAMIC_CERTIFICATE_STATUSES.EXPIRING_SOON;
+  }
+  return DYNAMIC_CERTIFICATE_STATUSES.ACTIVE;
+}
+async function checkExpiringCertificates({
+  reminderWindows = ENV.REMINDER_WINDOWS,
+  now = /* @__PURE__ */ new Date()
+} = {}) {
+  const referenceDate = new Date(now);
+  const certificates = await Certificate.find({
+    certificateStatus: {
+      $nin: [CERTIFICATE_STATUSES.REVOKED, CERTIFICATE_STATUSES.CANCELLED]
+    },
+    status: {
+      $nin: [CERTIFICATE_STATUSES.REVOKED, CERTIFICATE_STATUSES.CANCELLED]
+    },
+    revokedAt: null
+  }).populate({
+    path: "stakeholder",
+    select: "user businessName tradeLicenseNumber"
+  });
+  const summary = {
+    totalChecked: certificates.length,
+    activeCount: 0,
+    expiringSoonCount: 0,
+    expiredCount: 0,
+    remindersSent: 0,
+    duplicatesPrevented: 0,
+    details: []
+  };
+  const sortedWindows = [...reminderWindows].sort((a, b) => a - b);
+  for (const cert of certificates) {
+    const dynamicStatus = calculateCertificateDynamicStatus(cert, 30, referenceDate);
+    const recipientUserId = cert.stakeholder?.user;
+    if (!recipientUserId) {
+      continue;
+    }
+    if (dynamicStatus === DYNAMIC_CERTIFICATE_STATUSES.EXPIRED) {
+      summary.expiredCount++;
+      const existingExpiredNotice = await Notification.findOne({
+        recipient: recipientUserId,
+        type: NOTIFICATION_TYPES.CERTIFICATE_EXPIRED,
+        relatedEntityId: cert._id
+      });
+      if (!existingExpiredNotice) {
+        await createNotification({
+          recipient: recipientUserId,
+          type: NOTIFICATION_TYPES.CERTIFICATE_EXPIRED,
+          title: `Verification Certificate Expired: ${cert.certificateNumber}`,
+          message: `Statutory verification certificate ${cert.certificateNumber} has expired on ${new Date(cert.validUntil).toLocaleDateString("en-IN")}. Please submit a Re-Verification application immediately.`,
+          relatedEntityType: "Certificate",
+          relatedEntityId: cert._id,
+          priority: NOTIFICATION_PRIORITIES.URGENT,
+          link: `/certificates/${cert._id}`,
+          metadata: {
+            certificateNumber: cert.certificateNumber,
+            validUntil: cert.validUntil,
+            isExpired: true
+          }
+        });
+        summary.remindersSent++;
+      } else {
+        summary.duplicatesPrevented++;
+      }
+    } else {
+      const validUntil = new Date(cert.validUntil);
+      const daysRemaining = Math.ceil((validUntil.getTime() - referenceDate.getTime()) / (1e3 * 60 * 60 * 24));
+      if (daysRemaining <= 30) {
+        summary.expiringSoonCount++;
+      } else {
+        summary.activeCount++;
+      }
+      let matchedWindow = null;
+      for (const windowDays of sortedWindows) {
+        if (daysRemaining <= windowDays && daysRemaining > 0) {
+          matchedWindow = windowDays;
+          break;
+        }
+      }
+      if (matchedWindow !== null) {
+        let reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30;
+        let priority = NOTIFICATION_PRIORITIES.HIGH;
+        if (matchedWindow <= 7) {
+          reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_7;
+          priority = NOTIFICATION_PRIORITIES.HIGH;
+        } else if (matchedWindow <= 30) {
+          reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30;
+          priority = NOTIFICATION_PRIORITIES.HIGH;
+        } else if (matchedWindow <= 60) {
+          reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_60;
+          priority = NOTIFICATION_PRIORITIES.MEDIUM;
+        }
+        const existingReminder = await Notification.findOne({
+          recipient: recipientUserId,
+          type: reminderType,
+          relatedEntityId: cert._id
+        });
+        if (!existingReminder) {
+          await createNotification({
+            recipient: recipientUserId,
+            type: reminderType,
+            title: `Certificate Expiring in ${daysRemaining} Days (${cert.certificateNumber})`,
+            message: `Verification certificate ${cert.certificateNumber} is expiring on ${validUntil.toLocaleDateString("en-IN")}. Submit your annual re-verification application soon.`,
+            relatedEntityType: "Certificate",
+            relatedEntityId: cert._id,
+            priority,
+            link: `/certificates/${cert._id}`,
+            metadata: {
+              certificateNumber: cert.certificateNumber,
+              validUntil: cert.validUntil,
+              daysRemaining,
+              windowDays: matchedWindow
+            }
+          });
+          summary.remindersSent++;
+        } else {
+          summary.duplicatesPrevented++;
+        }
+      }
+    }
+  }
+  return summary;
+}
+async function checkInstrumentsDue({
+  now = /* @__PURE__ */ new Date(),
+  triggeredBy = null
+} = {}) {
+  const referenceDate = new Date(now);
+  const instruments = await Instrument.find({
+    isActive: true,
+    nextVerificationDueDate: { $ne: null },
+    status: {
+      $nin: [
+        INSTRUMENT_STATUSES.REJECTED,
+        INSTRUMENT_STATUSES.OUT_OF_SERVICE
+      ]
+    }
+  }).populate({
+    path: "stakeholder",
+    select: "user businessName tradeLicenseNumber"
+  });
+  const summary = {
+    checked: 0,
+    totalChecked: 0,
+    upToDateCount: 0,
+    dueSoonCount: 0,
+    overdueCount: 0,
+    remindersSent: 0,
+    alertsCreated: 0,
+    alertsSent: 0,
+    expiredMarked: 0,
+    duplicatesSkipped: 0,
+    duplicatesPrevented: 0,
+    breakdown: {
+      reminders90Days: 0,
+      warnings30Days: 0,
+      urgents7Days: 0,
+      expiredCritical: 0
+    },
+    errors: []
+  };
+  for (const inst of instruments) {
+    try {
+      if (!inst.nextVerificationDueDate || isNaN(new Date(inst.nextVerificationDueDate).getTime())) {
+        continue;
+      }
+      summary.checked++;
+      summary.totalChecked++;
+      const dueDate = new Date(inst.nextVerificationDueDate);
+      const dueDateStr = dueDate.toISOString().split("T")[0];
+      const diffMs = dueDate.getTime() - referenceDate.getTime();
+      const diffDays = Math.ceil(diffMs / (1e3 * 60 * 60 * 24));
+      let stage = null;
+      let alertType = null;
+      let priority = null;
+      let title = "";
+      let message = "";
+      if (diffMs <= 0 || diffDays <= 0) {
+        stage = "EXPIRED";
+        alertType = NOTIFICATION_TYPES.VERIFICATION_EXPIRED;
+        priority = NOTIFICATION_PRIORITIES.CRITICAL;
+        title = `Instrument Verification Expired: ${inst.instrumentId || inst.serialNumber}`;
+        message = `Instrument ${inst.instrumentId || inst.serialNumber} passed its statutory verification due date on ${dueDate.toLocaleDateString("en-IN")}. Immediate re-verification is required. Continued commercial use is strictly non-compliant under the Legal Metrology Act.`;
+        summary.overdueCount++;
+        summary.breakdown.expiredCritical++;
+        if (inst.status === INSTRUMENT_STATUSES.ACTIVE_VERIFIED) {
+          inst.status = INSTRUMENT_STATUSES.EXPIRED;
+          await inst.save();
+          summary.expiredMarked++;
+          await logAuditEvent({
+            user: triggeredBy?._id || null,
+            userRole: triggeredBy?.role || "SYSTEM",
+            userEmail: triggeredBy?.email || "system@doca.gov.in",
+            action: AUDIT_ACTIONS.INSTRUMENT_EXPIRED,
+            entity: "Instrument",
+            entityId: inst._id,
+            metadata: {
+              instrumentId: inst.instrumentId,
+              serialNumber: inst.serialNumber,
+              fromStatus: INSTRUMENT_STATUSES.ACTIVE_VERIFIED,
+              toStatus: INSTRUMENT_STATUSES.EXPIRED,
+              dueDate: inst.nextVerificationDueDate,
+              reason: "Automatic verification expiry check: statutory due date passed"
+            }
+          });
+        }
+      } else if (diffDays > 0 && diffDays <= 7) {
+        stage = "7_DAYS";
+        alertType = NOTIFICATION_TYPES.VERIFICATION_URGENT;
+        priority = NOTIFICATION_PRIORITIES.HIGH;
+        title = `Urgent: Instrument Verification Due in ${diffDays} Day${diffDays === 1 ? "" : "s"}`;
+        message = `Instrument ${inst.instrumentId || inst.serialNumber} is due for mandatory verification in ${diffDays} day${diffDays === 1 ? "" : "s"} (${dueDate.toLocaleDateString("en-IN")}). Immediate renewal scheduling required.`;
+        summary.dueSoonCount++;
+        summary.breakdown.urgents7Days++;
+      } else if (diffDays > 7 && diffDays <= 30) {
+        stage = "30_DAYS";
+        alertType = NOTIFICATION_TYPES.VERIFICATION_WARNING;
+        priority = NOTIFICATION_PRIORITIES.MEDIUM;
+        title = `Warning: Instrument Verification Due in ${diffDays} Days`;
+        message = `Instrument ${inst.instrumentId || inst.serialNumber} is due for statutory verification on ${dueDate.toLocaleDateString("en-IN")}. Please submit your re-verification application.`;
+        summary.dueSoonCount++;
+        summary.breakdown.warnings30Days++;
+      } else if (diffDays > 30 && diffDays <= 90) {
+        stage = "90_DAYS";
+        alertType = NOTIFICATION_TYPES.VERIFICATION_REMINDER;
+        priority = NOTIFICATION_PRIORITIES.LOW;
+        title = `Reminder: Instrument Verification Due in ${diffDays} Days`;
+        message = `Instrument ${inst.instrumentId || inst.serialNumber} is due for verification on ${dueDate.toLocaleDateString("en-IN")}. Advance planning for re-verification is advised.`;
+        summary.breakdown.reminders90Days++;
+      } else {
+        summary.upToDateCount++;
+        continue;
+      }
+      const recipients = [];
+      if (inst.stakeholder?.user) {
+        recipients.push({
+          userId: inst.stakeholder.user._id || inst.stakeholder.user,
+          role: USER_ROLES.BUSINESS_USER
+        });
+      }
+      const linkedApp = await VerificationApplication.findOne({
+        $or: [{ instrument: inst._id }, { instruments: inst._id }]
+      }).sort({ createdAt: -1 });
+      if (linkedApp?.assignedLMO) {
+        recipients.push({
+          userId: linkedApp.assignedLMO,
+          role: USER_ROLES.LEGAL_METROLOGY_OFFICER
+        });
+      } else if (inst.installationAddress?.district) {
+        const districtLmo = await User.findOne({
+          role: USER_ROLES.LEGAL_METROLOGY_OFFICER,
+          isActive: true,
+          "jurisdiction.district": new RegExp(`^${inst.installationAddress.district}$`, "i")
+        });
+        if (districtLmo) {
+          recipients.push({
+            userId: districtLmo._id,
+            role: USER_ROLES.LEGAL_METROLOGY_OFFICER
+          });
+        }
+      }
+      if (linkedApp) {
+        try {
+          const { Inspection } = await import("../models/Inspection.js");
+          const inspection = await Inspection.findOne({
+            $or: [{ application: linkedApp._id }, { instrument: inst._id }]
+          });
+          if (inspection?.fieldOfficer) {
+            recipients.push({
+              userId: inspection.fieldOfficer,
+              role: USER_ROLES.FIELD_VERIFICATION_OFFICER
+            });
+          }
+        } catch {
+        }
+      }
+      if (linkedApp?.verificationLocation?.locationType === "GATC_FACILITY") {
+        const gatcOfficer = await User.findOne({
+          role: USER_ROLES.GATC_OFFICER,
+          isActive: true
+        });
+        if (gatcOfficer) {
+          recipients.push({
+            userId: gatcOfficer._id,
+            role: USER_ROLES.GATC_OFFICER
+          });
+        }
+      }
+      const seenUserIds = /* @__PURE__ */ new Set();
+      for (const rec of recipients) {
+        const targetUserId = rec.userId.toString();
+        if (seenUserIds.has(targetUserId)) continue;
+        seenUserIds.add(targetUserId);
+        const existingAlert = await Notification.findOne({
+          recipient: targetUserId,
+          type: alertType,
+          $and: [
+            {
+              $or: [{ instrument: inst._id }, { relatedEntityId: inst._id }]
+            },
+            {
+              $or: [
+                { dueDate: inst.nextVerificationDueDate },
+                { "metadata.dueDate": dueDateStr },
+                { "metadata.cycleDueDate": dueDateStr }
+              ]
+            }
+          ]
+        });
+        if (existingAlert) {
+          summary.duplicatesSkipped++;
+          summary.duplicatesPrevented++;
+          continue;
+        }
+        await createNotification({
+          recipient: targetUserId,
+          type: alertType,
+          priority,
+          title,
+          message,
+          instrument: inst._id,
+          application: linkedApp?._id || void 0,
+          dueDate: inst.nextVerificationDueDate,
+          relatedEntityType: "Instrument",
+          relatedEntityId: inst._id,
+          link: `/instruments/${inst._id}`,
+          metadata: {
+            instrumentId: inst.instrumentId,
+            serialNumber: inst.serialNumber,
+            dueDate: dueDateStr,
+            cycleDueDate: dueDateStr,
+            alertStage: stage,
+            daysRemaining: diffDays
+          },
+          sendEmailAlert: false
+        });
+        summary.remindersSent++;
+        summary.alertsCreated++;
+        summary.alertsSent++;
+        const ownerUserId = (inst.stakeholder?.user?._id || inst.stakeholder?.user)?.toString();
+        if (ownerUserId && targetUserId === ownerUserId) {
+          if (stage === "30_DAYS" || stage === "7_DAYS") {
+            const legacyDueNotice = await Notification.findOne({
+              recipient: targetUserId,
+              type: NOTIFICATION_TYPES.VERIFICATION_DUE,
+              $and: [
+                { $or: [{ instrument: inst._id }, { relatedEntityId: inst._id }] },
+                { $or: [{ dueDate: inst.nextVerificationDueDate }, { "metadata.dueDate": dueDateStr }] }
+              ]
+            });
+            if (!legacyDueNotice) {
+              await createNotification({
+                recipient: targetUserId,
+                type: NOTIFICATION_TYPES.VERIFICATION_DUE,
+                priority: NOTIFICATION_PRIORITIES.HIGH,
+                title: `Instrument Verification Due Soon: ${inst.instrumentId || inst.serialNumber}`,
+                message: `Instrument ${inst.instrumentId || inst.serialNumber} is due for verification on ${dueDate.toLocaleDateString("en-IN")}.`,
+                instrument: inst._id,
+                relatedEntityType: "Instrument",
+                relatedEntityId: inst._id,
+                dueDate: inst.nextVerificationDueDate,
+                link: `/instruments/${inst._id}`,
+                metadata: { dueDate: dueDateStr, dueStatus: INSTRUMENT_DUE_STATUSES.DUE_SOON },
+                sendEmailAlert: false
+              });
+            }
+          } else if (stage === "EXPIRED") {
+            const legacyOverdueNotice = await Notification.findOne({
+              recipient: targetUserId,
+              type: NOTIFICATION_TYPES.VERIFICATION_OVERDUE,
+              $and: [
+                { $or: [{ instrument: inst._id }, { relatedEntityId: inst._id }] },
+                { $or: [{ dueDate: inst.nextVerificationDueDate }, { "metadata.dueDate": dueDateStr }] }
+              ]
+            });
+            if (!legacyOverdueNotice) {
+              await createNotification({
+                recipient: targetUserId,
+                type: NOTIFICATION_TYPES.VERIFICATION_OVERDUE,
+                priority: NOTIFICATION_PRIORITIES.URGENT,
+                title: `Instrument Verification Overdue: ${inst.instrumentId || inst.serialNumber}`,
+                message: `Instrument ${inst.instrumentId || inst.serialNumber} is overdue for verification.`,
+                instrument: inst._id,
+                relatedEntityType: "Instrument",
+                relatedEntityId: inst._id,
+                dueDate: inst.nextVerificationDueDate,
+                link: `/instruments/${inst._id}`,
+                metadata: { dueDate: dueDateStr, dueStatus: INSTRUMENT_DUE_STATUSES.OVERDUE },
+                sendEmailAlert: false
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      summary.errors.push(`Instrument ${inst._id}: ${err.message}`);
+    }
+  }
+  return summary;
+}
+async function checkOverdueApplications({
+  overdueDays = ENV.OVERDUE_APPLICATION_DAYS,
+  now = /* @__PURE__ */ new Date()
+} = {}) {
+  const referenceDate = new Date(now);
+  const cutoffDate = new Date(referenceDate.getTime() - overdueDays * 24 * 60 * 60 * 1e3);
+  const pendingApps = await VerificationApplication.find({
+    currentStatus: {
+      $in: [APPLICATION_STATUSES.SUBMITTED, APPLICATION_STATUSES.UNDER_REVIEW]
+    },
+    submittedAt: { $lte: cutoffDate }
+  }).populate("assignedLMO", "_id name email");
+  const summary = {
+    totalChecked: pendingApps.length,
+    overdueApplications: pendingApps.length,
+    alertsSent: 0,
+    duplicatesPrevented: 0
+  };
+  const adminUsers = await User.find({
+    role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] },
+    isActive: true
+  }).select("_id");
+  for (const app2 of pendingApps) {
+    const targetUserId = app2.assignedLMO?._id || adminUsers[0]?._id;
+    if (!targetUserId) continue;
+    const existingAlert = await Notification.findOne({
+      recipient: targetUserId,
+      type: NOTIFICATION_TYPES.SYSTEM_ALERT,
+      relatedEntityId: app2._id,
+      "metadata.alertCategory": "OVERDUE_APPLICATION_SLA"
+    });
+    if (!existingAlert) {
+      await createNotification({
+        recipient: targetUserId,
+        type: NOTIFICATION_TYPES.SYSTEM_ALERT,
+        title: `Overdue Application SLA Alert: ${app2.applicationNumber}`,
+        message: `Application ${app2.applicationNumber} has been pending review for over ${overdueDays} days without schedule or decision. Immediate action required.`,
+        relatedEntityType: "Application",
+        relatedEntityId: app2._id,
+        priority: NOTIFICATION_PRIORITIES.HIGH,
+        link: `/applications/${app2._id}`,
+        metadata: {
+          applicationNumber: app2.applicationNumber,
+          submittedAt: app2.submittedAt,
+          alertCategory: "OVERDUE_APPLICATION_SLA"
+        }
+      });
+      summary.alertsSent++;
+    } else {
+      summary.duplicatesPrevented++;
+    }
+  }
+  return summary;
+}
+async function runExpiryAndDueDateChecks({
+  now = /* @__PURE__ */ new Date(),
+  triggeredBy = null
+} = {}) {
+  const startTime = Date.now();
+  const executionDate = new Date(now);
+  const [certificates, instruments, applications] = await Promise.all([
+    checkExpiringCertificates({ now: executionDate }),
+    checkInstrumentsDue({ now: executionDate, triggeredBy }),
+    checkOverdueApplications({ now: executionDate })
+  ]);
+  const durationMs = Date.now() - startTime;
+  const result = {
+    success: true,
+    executedAt: executionDate.toISOString(),
+    durationMs,
+    checked: instruments.checked ?? instruments.totalChecked ?? 0,
+    remindersSent: instruments.remindersSent ?? instruments.alertsSent ?? 0,
+    alertsCreated: instruments.alertsCreated ?? instruments.alertsSent ?? 0,
+    alertsSent: instruments.alertsSent ?? 0,
+    expiredMarked: instruments.expiredMarked ?? 0,
+    duplicatesSkipped: instruments.duplicatesSkipped ?? instruments.duplicatesPrevented ?? 0,
+    duplicatesPrevented: instruments.duplicatesPrevented ?? 0,
+    errors: instruments.errors ?? [],
+    certificates,
+    instruments,
+    applications
+  };
+  if (triggeredBy) {
+    await logAuditEvent({
+      user: triggeredBy._id || triggeredBy,
+      userRole: triggeredBy.role || "SYSTEM",
+      userEmail: triggeredBy.email || "system@doca.gov.in",
+      action: AUDIT_ACTIONS.EXPIRY_CHECK_EXECUTED,
+      entity: "System",
+      metadata: {
+        certificatesChecked: certificates.totalChecked,
+        certificatesExpired: certificates.expiredCount,
+        instrumentsChecked: instruments.totalChecked,
+        instrumentsOverdue: instruments.overdueCount,
+        applicationsOverdue: applications.overdueApplications,
+        durationMs
+      }
+    });
+  }
+  return result;
+}
+var init_expiryService = __esm({
+  "backend/services/expiryService.js"() {
+    init_Certificate();
+    init_Instrument();
+    init_VerificationApplication();
+    init_Stakeholder();
+    init_User();
+    init_Notification();
+    init_constants();
+    init_env();
+    init_notificationService();
+    init_auditService();
   }
 });
 
@@ -1912,6 +2922,66 @@ var init_adminSeedService = __esm({
     init_User();
     init_constants();
     init_env();
+  }
+});
+
+// backend/jobs/expiryScheduler.js
+var expiryScheduler_exports = {};
+__export(expiryScheduler_exports, {
+  startExpiryScheduler: () => startExpiryScheduler,
+  stopExpiryScheduler: () => stopExpiryScheduler,
+  triggerExpiryCheckNow: () => triggerExpiryCheckNow
+});
+async function triggerExpiryCheckNow(triggeredBy = null) {
+  if (isJobRunning) {
+    return { status: "in_progress", message: "Expiry check job is already running" };
+  }
+  isJobRunning = true;
+  try {
+    const result = await runExpiryAndDueDateChecks({ triggeredBy });
+    return result;
+  } catch (error) {
+    console.error("[EXPIRY SCHEDULER ERROR] Manual check failed:", error.message);
+    throw error;
+  } finally {
+    isJobRunning = false;
+  }
+}
+function startExpiryScheduler(intervalMs = 24 * 60 * 60 * 1e3) {
+  if (schedulerInterval) {
+    return;
+  }
+  console.log(`[EXPIRY SCHEDULER] Background worker initialized (interval: ${intervalMs}ms)`);
+  schedulerInterval = setInterval(async () => {
+    if (isJobRunning) return;
+    isJobRunning = true;
+    try {
+      console.log("[EXPIRY SCHEDULER] Running scheduled daily statutory expiry & due-date check...");
+      const result = await runExpiryAndDueDateChecks();
+      console.log("[EXPIRY SCHEDULER] Completed:", JSON.stringify(result.certificates));
+    } catch (err) {
+      console.error("[EXPIRY SCHEDULER ERROR] Background job error:", err.message);
+    } finally {
+      isJobRunning = false;
+    }
+  }, intervalMs);
+  if (schedulerInterval.unref) {
+    schedulerInterval.unref();
+  }
+}
+function stopExpiryScheduler() {
+  if (schedulerInterval) {
+    clearInterval(schedulerInterval);
+    schedulerInterval = null;
+    console.log("[EXPIRY SCHEDULER] Stopped background worker.");
+  }
+}
+var schedulerInterval, isJobRunning;
+var init_expiryScheduler = __esm({
+  "backend/jobs/expiryScheduler.js"() {
+    init_expiryService();
+    schedulerInterval = null;
+    isJobRunning = false;
   }
 });
 
@@ -2788,101 +3858,7 @@ init_User();
 init_Stakeholder();
 init_env();
 init_constants();
-
-// backend/models/AuditLog.js
-var import_mongoose7 = __toESM(require("mongoose"), 1);
-var auditLogSchema = new import_mongoose7.default.Schema(
-  {
-    user: {
-      type: import_mongoose7.default.Schema.Types.ObjectId,
-      ref: "User",
-      index: true
-    },
-    userRole: {
-      type: String,
-      index: true
-    },
-    userEmail: {
-      type: String
-    },
-    action: {
-      type: String,
-      required: true,
-      index: true
-    },
-    entity: {
-      type: String,
-      required: true,
-      index: true
-    },
-    entityId: {
-      type: String,
-      index: true
-    },
-    ipAddress: {
-      type: String
-    },
-    userAgent: {
-      type: String
-    },
-    metadata: {
-      type: import_mongoose7.default.Schema.Types.Mixed,
-      default: {}
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-      index: true
-    }
-  },
-  {
-    timestamps: false,
-    versionKey: false
-  }
-);
-auditLogSchema.index({ entity: 1, entityId: 1 });
-auditLogSchema.index({ action: 1, timestamp: -1 });
-auditLogSchema.index({ user: 1, timestamp: -1 });
-var AuditLog = import_mongoose7.default.model("AuditLog", auditLogSchema);
-
-// backend/services/auditService.js
-async function logAuditEvent({
-  user = null,
-  userRole = null,
-  userEmail = null,
-  action,
-  entity,
-  entityId = null,
-  ipAddress = null,
-  userAgent = null,
-  metadata = {}
-}, session = null) {
-  try {
-    const sanitizedMetadata = { ...metadata };
-    delete sanitizedMetadata.password;
-    delete sanitizedMetadata.token;
-    delete sanitizedMetadata.secret;
-    const logEntry = new AuditLog({
-      user: user?._id || user,
-      userRole: userRole || user?.role,
-      userEmail: userEmail || user?.email,
-      action,
-      entity,
-      entityId: entityId ? String(entityId) : null,
-      ipAddress,
-      userAgent,
-      metadata: sanitizedMetadata,
-      timestamp: /* @__PURE__ */ new Date()
-    });
-    await logEntry.save(session ? { session } : void 0);
-    return logEntry;
-  } catch (error) {
-    console.error("[AUDIT LOG ERROR] Failed to record audit entry:", error.message);
-    return null;
-  }
-}
-
-// backend/services/authService.js
+init_auditService();
 function generateToken(user) {
   return import_jsonwebtoken2.default.sign(
     {
@@ -3229,7 +4205,7 @@ var import_mongoose8 = __toESM(require("mongoose"), 1);
 init_User();
 
 // backend/utils/pagination.js
-function getPaginationParams(query = {}, defaultLimit = 10, maxLimit = 100) {
+function getPaginationParams(query = {}, defaultLimit = 20, maxLimit = 100) {
   const rawPageVal = Array.isArray(query.page) ? query.page[query.page.length - 1] : query.page;
   const parsedPage = parseInt(rawPageVal, 10);
   const page = !isNaN(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -3274,6 +4250,7 @@ function buildPaginationResponse(data, total, page, limit, customKey = null) {
 
 // backend/controllers/userController.js
 init_constants();
+init_auditService();
 var getUsers = asyncHandler(async (req, res) => {
   const { page, limit, skip, sort } = getPaginationParams(req.query);
   const filter = {};
@@ -3310,10 +4287,17 @@ var getUsers = asyncHandler(async (req, res) => {
       { phone: { $regex: safeSearch, $options: "i" } }
     ];
   }
-  const [users, total] = await Promise.all([
-    User.find(filter).sort(sort).skip(skip).limit(limit),
+  const [rawUsers, total] = await Promise.all([
+    User.find(filter).sort(sort).skip(skip).limit(limit).lean(),
     User.countDocuments(filter)
   ]);
+  const users = rawUsers.map((u) => {
+    const { password, __v, ...rest } = u;
+    return {
+      ...rest,
+      status: rest.isActive ? "ACTIVE" : "INACTIVE"
+    };
+  });
   return ApiResponse.success(
     res,
     buildPaginationResponse(users, total, page, limit),
@@ -3615,6 +4599,7 @@ var import_express3 = require("express");
 var import_mongoose9 = __toESM(require("mongoose"), 1);
 init_Stakeholder();
 init_constants();
+init_auditService();
 var getStakeholders = asyncHandler(async (req, res) => {
   const { page, limit, skip, sort } = getPaginationParams(req.query);
   const filter = {};
@@ -3685,7 +4670,83 @@ var updateStakeholderProfile = asyncHandler(async (req, res) => {
     stakeholder = await Stakeholder.findById(req.params.id);
   }
   if (!stakeholder) {
-    throw ApiError.notFound("Stakeholder profile not found");
+    if (req.user.role !== USER_ROLES.BUSINESS_USER) {
+      throw ApiError.notFound("Stakeholder profile not found");
+    }
+    if (!req.body.businessName || req.body.businessName.trim().length < 2) {
+      throw ApiError.badRequest("Legal business name is required and must be at least 2 characters.");
+    }
+    if (!req.body.tradeLicenseNumber || req.body.tradeLicenseNumber.trim().length < 2) {
+      throw ApiError.badRequest("Trade license or registration number is required.");
+    }
+    const regAddr = req.body.registeredAddress || {};
+    const street = regAddr.street || regAddr.addressLine || regAddr.line1 || "";
+    if (!street.trim() || !regAddr.city || !regAddr.district || !regAddr.state || !regAddr.pincode) {
+      throw ApiError.badRequest(
+        "All registered address fields (street, city, district, state, pincode) are required."
+      );
+    }
+    const existing = await Stakeholder.findOne({
+      tradeLicenseNumber: req.body.tradeLicenseNumber.trim()
+    });
+    if (existing) {
+      throw ApiError.conflict(
+        `Trade license number '${req.body.tradeLicenseNumber}' is already registered with another business.`
+      );
+    }
+    const contact = req.body.contactPerson || {};
+    const contactName = contact.name || req.user.name;
+    const contactPhone = contact.phone || req.user.phone;
+    const contactEmail = contact.email || req.user.email;
+    if (!contactName || contactName.trim().length < 2) {
+      throw ApiError.badRequest("Contact person name is required.");
+    }
+    if (!contactPhone || contactPhone.trim().length < 10) {
+      throw ApiError.badRequest("Valid 10-digit contact person phone number is required.");
+    }
+    if (!contactEmail || !contactEmail.includes("@")) {
+      throw ApiError.badRequest("Valid contact person email is required.");
+    }
+    stakeholder = new Stakeholder({
+      user: req.user._id,
+      businessName: req.body.businessName.trim(),
+      tradeLicenseNumber: req.body.tradeLicenseNumber.trim(),
+      businessType: req.body.businessType || "RETAILER",
+      gstNumber: req.body.gstNumber ? req.body.gstNumber.trim().toUpperCase() : void 0,
+      panNumber: req.body.panNumber ? req.body.panNumber.trim().toUpperCase() : void 0,
+      registeredAddress: {
+        street: street.trim(),
+        city: regAddr.city.trim(),
+        district: regAddr.district.trim(),
+        state: regAddr.state.trim(),
+        pincode: regAddr.pincode.trim()
+      },
+      contactPerson: {
+        name: contactName.trim(),
+        designation: contact.designation ? contact.designation.trim() : void 0,
+        phone: contactPhone.trim(),
+        email: contactEmail.trim().toLowerCase()
+      },
+      kycStatus: "PENDING"
+    });
+    await stakeholder.save();
+    await logAuditEvent({
+      user: req.user._id,
+      userRole: req.user.role,
+      userEmail: req.user.email,
+      action: AUDIT_ACTIONS.STAKEHOLDER_UPDATED || "STAKEHOLDER_CREATED",
+      entity: "Stakeholder",
+      entityId: stakeholder._id,
+      metadata: {
+        businessName: stakeholder.businessName,
+        tradeLicenseNumber: stakeholder.tradeLicenseNumber
+      }
+    });
+    const populatedProfile = await Stakeholder.findById(stakeholder._id).populate(
+      "user",
+      "name email phone role isActive"
+    );
+    return ApiResponse.created(res, populatedProfile, "Stakeholder business profile created successfully");
   }
   if (req.body.tradeLicenseNumber && req.body.tradeLicenseNumber !== stakeholder.tradeLicenseNumber) {
     const existing = await Stakeholder.findOne({
@@ -3804,6 +4865,75 @@ var uploadKycDocument = asyncHandler(async (req, res) => {
     }
   });
   return ApiResponse.created(res, stakeholder, "KYC document uploaded successfully");
+});
+var reverseGeocodeLocation = asyncHandler(async (req, res) => {
+  const lat = parseFloat(req.query.lat || req.query.latitude);
+  const lon = parseFloat(req.query.lon || req.query.longitude);
+  if (isNaN(lat) || isNaN(lon)) {
+    throw ApiError.badRequest("Valid latitude and longitude coordinates are required.");
+  }
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "LegalMetrologyPortal/1.0 (contact@gov.in)",
+        "Accept": "application/json"
+      }
+    });
+    if (!response.ok) {
+      return ApiResponse.success(
+        res,
+        {
+          latitude: lat,
+          longitude: lon,
+          street: "",
+          addressLine: "",
+          city: "",
+          district: "",
+          state: "",
+          pincode: ""
+        },
+        "Location captured successfully"
+      );
+    }
+    const data = await response.json();
+    const addr = data.address || {};
+    const street = [addr.house_number, addr.road, addr.suburb || addr.neighbourhood].filter(Boolean).join(", ") || addr.road || addr.suburb || "";
+    const city = addr.city || addr.town || addr.village || addr.municipality || "";
+    const district = addr.state_district ? addr.state_district.replace(/\s+District$/i, "") : addr.county || addr.city_district || addr.district || "";
+    const state = addr.state || "";
+    const pincode = addr.postcode || "";
+    return ApiResponse.success(
+      res,
+      {
+        latitude: lat,
+        longitude: lon,
+        street,
+        addressLine: street,
+        city,
+        district,
+        state,
+        pincode,
+        displayName: data.display_name || ""
+      },
+      "Location reverse-geocoded successfully"
+    );
+  } catch (err) {
+    return ApiResponse.success(
+      res,
+      {
+        latitude: lat,
+        longitude: lon,
+        street: "",
+        addressLine: "",
+        city: "",
+        district: "",
+        state: "",
+        pincode: ""
+      },
+      "Location coordinates captured. Please enter address details manually."
+    );
+  }
 });
 
 // backend/middleware/uploadMiddleware.js
@@ -3942,6 +5072,12 @@ router3.get(
   authorize(USER_ROLES.BUSINESS_USER),
   getMyStakeholderProfile
 );
+router3.post(
+  "/me",
+  authorize(USER_ROLES.BUSINESS_USER),
+  validate(updateStakeholderSchema),
+  updateStakeholderProfile
+);
 router3.put(
   "/me",
   authorize(USER_ROLES.BUSINESS_USER),
@@ -3960,6 +5096,7 @@ router3.post(
   upload.single("document"),
   uploadKycDocument
 );
+router3.get("/reverse-geocode", reverseGeocodeLocation);
 router3.get(
   "/",
   authorize(USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.LEGAL_METROLOGY_OFFICER),
@@ -4000,6 +5137,7 @@ init_Stakeholder();
 init_VerificationApplication();
 init_Certificate();
 init_constants();
+init_auditService();
 var getInstruments = asyncHandler(async (req, res) => {
   const { page, limit, skip, sort } = getPaginationParams(req.query);
   const filter = {};
@@ -4020,7 +5158,22 @@ var getInstruments = asyncHandler(async (req, res) => {
     filter.stakeholder = req.query.stakeholderId;
   }
   if (req.query.status) {
-    filter.status = req.query.status;
+    if (req.query.status === "EXPIRED") {
+      const now = /* @__PURE__ */ new Date();
+      filter.$or = [
+        { status: INSTRUMENT_STATUSES.EXPIRED },
+        { nextVerificationDueDate: { $lt: now } }
+      ];
+    } else if (req.query.status === "EXPIRING_SOON") {
+      const now = /* @__PURE__ */ new Date();
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+      filter.$or = [
+        { status: INSTRUMENT_STATUSES.EXPIRED },
+        { nextVerificationDueDate: { $lte: in30Days } }
+      ];
+    } else {
+      filter.status = req.query.status;
+    }
   }
   if (req.query.category && req.query.category !== "undefined") {
     let cat = req.query.category;
@@ -4058,7 +5211,7 @@ var getInstruments = asyncHandler(async (req, res) => {
     ];
   }
   const [instruments, total] = await Promise.all([
-    Instrument.find(filter).populate("stakeholder", "businessName tradeLicenseNumber registeredAddress").sort(sort).skip(skip).limit(limit),
+    Instrument.find(filter).populate("stakeholder", "businessName tradeLicenseNumber registeredAddress").sort(sort).skip(skip).limit(limit).lean(),
     Instrument.countDocuments(filter)
   ]);
   return ApiResponse.success(
@@ -4579,326 +5732,15 @@ init_VerificationSchedule();
 init_VerificationInspection();
 init_VerificationResult();
 init_Certificate();
+init_AuditLog();
 init_constants();
+init_auditService();
 
 // backend/services/applicationWorkflowService.js
 init_VerificationApplication();
 init_constants();
-
-// backend/models/Notification.js
-var import_mongoose13 = __toESM(require("mongoose"), 1);
-init_constants();
-var notificationSchema = new import_mongoose13.default.Schema(
-  {
-    recipient: {
-      type: import_mongoose13.default.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true
-    },
-    type: {
-      type: String,
-      enum: NOTIFICATION_TYPE_LIST,
-      default: NOTIFICATION_TYPES.SYSTEM_NOTIFICATION,
-      required: true,
-      index: true
-    },
-    title: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    message: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    relatedEntityType: {
-      type: String,
-      trim: true,
-      index: true
-    },
-    relatedEntityId: {
-      type: import_mongoose13.default.Schema.Types.ObjectId,
-      index: true
-    },
-    priority: {
-      type: String,
-      enum: NOTIFICATION_PRIORITY_LIST,
-      default: NOTIFICATION_PRIORITIES.MEDIUM,
-      index: true
-    },
-    link: {
-      type: String,
-      trim: true
-    },
-    isRead: {
-      type: Boolean,
-      default: false,
-      index: true
-    },
-    readAt: {
-      type: Date
-    },
-    expiresAt: {
-      type: Date,
-      index: true
-    },
-    metadata: {
-      type: import_mongoose13.default.Schema.Types.Mixed,
-      default: {}
-    }
-  },
-  {
-    timestamps: true
-  }
-);
-notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
-notificationSchema.index({ recipient: 1, priority: 1, createdAt: -1 });
-notificationSchema.index({ relatedEntityType: 1, relatedEntityId: 1, type: 1 });
-var Notification = import_mongoose13.default.model("Notification", notificationSchema);
-
-// backend/models/NotificationPreference.js
-var import_mongoose14 = __toESM(require("mongoose"), 1);
-var notificationPreferenceSchema = new import_mongoose14.default.Schema(
-  {
-    user: {
-      type: import_mongoose14.default.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      unique: true,
-      index: true
-    },
-    inAppEnabled: {
-      type: Boolean,
-      default: true
-    },
-    emailEnabled: {
-      type: Boolean,
-      default: true
-    },
-    reminderWindows: {
-      day60: { type: Boolean, default: true },
-      day30: { type: Boolean, default: true },
-      day7: { type: Boolean, default: true },
-      onExpiry: { type: Boolean, default: true }
-    },
-    categories: {
-      certificateExpiry: { type: Boolean, default: true },
-      verificationDue: { type: Boolean, default: true },
-      workflowUpdates: { type: Boolean, default: true },
-      systemAlerts: { type: Boolean, default: true }
-    }
-  },
-  {
-    timestamps: true
-  }
-);
-var NotificationPreference = import_mongoose14.default.model(
-  "NotificationPreference",
-  notificationPreferenceSchema
-);
-
-// backend/services/notificationService.js
-init_User();
-
-// backend/services/emailService.js
-var import_nodemailer = __toESM(require("nodemailer"), 1);
-init_env();
-var transporter = null;
-if (ENV.SMTP_HOST && ENV.SMTP_USER) {
-  transporter = import_nodemailer.default.createTransport({
-    host: ENV.SMTP_HOST,
-    port: ENV.SMTP_PORT,
-    secure: ENV.SMTP_PORT === 465,
-    auth: {
-      user: ENV.SMTP_USER,
-      pass: ENV.SMTP_PASSWORD
-    }
-  });
-}
-async function sendEmail({ to, subject, html, text }) {
-  if (!to) return null;
-  try {
-    if (transporter) {
-      const info = await transporter.sendMail({
-        from: `"${ENV.SMTP_FROM}" <${ENV.SMTP_FROM}>`,
-        to,
-        subject,
-        text,
-        html
-      });
-      return info;
-    } else {
-      console.log(`[EMAIL DISPATCH - DEV] To: ${to} | Subject: ${subject}`);
-      return { messageId: "simulated-dev-id" };
-    }
-  } catch (error) {
-    console.error(`[EMAIL ERROR] Failed to send email to ${to}:`, error.message);
-    return null;
-  }
-}
-
-// backend/services/notificationService.js
-init_constants();
-async function getNotificationPreferences(userId) {
-  let pref = await NotificationPreference.findOne({ user: userId });
-  if (!pref) {
-    pref = await NotificationPreference.create({
-      user: userId,
-      inAppEnabled: true,
-      emailEnabled: true,
-      reminderWindows: {
-        day60: true,
-        day30: true,
-        day7: true,
-        onExpiry: true
-      },
-      categories: {
-        certificateExpiry: true,
-        verificationDue: true,
-        workflowUpdates: true,
-        systemAlerts: true
-      }
-    });
-  }
-  return pref;
-}
-async function updateNotificationPreferences(userId, updates = {}) {
-  const pref = await getNotificationPreferences(userId);
-  if (typeof updates.inAppEnabled === "boolean") {
-    pref.inAppEnabled = updates.inAppEnabled;
-  }
-  if (typeof updates.emailEnabled === "boolean") {
-    pref.emailEnabled = updates.emailEnabled;
-  }
-  if (updates.reminderWindows && typeof updates.reminderWindows === "object") {
-    pref.reminderWindows = {
-      ...pref.reminderWindows?.toObject?.() || pref.reminderWindows,
-      ...updates.reminderWindows
-    };
-  }
-  if (updates.categories && typeof updates.categories === "object") {
-    pref.categories = {
-      ...pref.categories?.toObject?.() || pref.categories,
-      ...updates.categories
-    };
-  }
-  await pref.save();
-  return pref;
-}
-function resolveDefaultPriority(type) {
-  if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRED || type === NOTIFICATION_TYPES.VERIFICATION_OVERDUE || type === NOTIFICATION_TYPES.VERIFICATION_FAILED) {
-    return NOTIFICATION_PRIORITIES.URGENT;
-  }
-  if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_7 || type === NOTIFICATION_TYPES.VERIFICATION_DUE || type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30 || type === NOTIFICATION_TYPES.APPLICATION_REJECTED) {
-    return NOTIFICATION_PRIORITIES.HIGH;
-  }
-  if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_60 || type === NOTIFICATION_TYPES.CERTIFICATE_ISSUED || type === NOTIFICATION_TYPES.CERTIFICATE_GENERATED || type === NOTIFICATION_TYPES.VERIFICATION_PASSED || type === NOTIFICATION_TYPES.APPLICATION_APPROVED || type === NOTIFICATION_TYPES.SCHEDULE_CREATED || type === NOTIFICATION_TYPES.SCHEDULE_CHANGED || type === NOTIFICATION_TYPES.INSPECTION_ASSIGNED || type === NOTIFICATION_TYPES.INSPECTION_COMPLETED) {
-    return NOTIFICATION_PRIORITIES.MEDIUM;
-  }
-  return NOTIFICATION_PRIORITIES.LOW;
-}
-async function createNotification({
-  recipientId,
-  recipient,
-  type = NOTIFICATION_TYPES.SYSTEM_NOTIFICATION,
-  title,
-  message,
-  relatedEntityType,
-  relatedEntityId,
-  priority,
-  link = "",
-  metadata = {},
-  expiresAt,
-  sendEmailAlert = true
-}, session = null) {
-  try {
-    const targetUserId = recipient || recipientId;
-    if (!targetUserId) {
-      console.warn("[NOTIFICATION SERVICE] Warning: Missing recipient for notification:", title);
-      return null;
-    }
-    const preferences = await getNotificationPreferences(targetUserId);
-    if (preferences.categories) {
-      if ((type.startsWith("CERTIFICATE_EXPIR") || type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRED) && preferences.categories.certificateExpiry === false) {
-        return null;
-      }
-      if ((type === NOTIFICATION_TYPES.VERIFICATION_DUE || type === NOTIFICATION_TYPES.VERIFICATION_OVERDUE) && preferences.categories.verificationDue === false) {
-        return null;
-      }
-      if ((type.startsWith("APPLICATION_") || type.startsWith("SCHEDULE_") || type.startsWith("INSPECTION_") || type.startsWith("VERIFICATION_")) && preferences.categories.workflowUpdates === false) {
-        return null;
-      }
-      if (type === NOTIFICATION_TYPES.SYSTEM_ALERT && preferences.categories.systemAlerts === false) {
-        return null;
-      }
-    }
-    if (preferences.reminderWindows) {
-      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_60 && preferences.reminderWindows.day60 === false) {
-        return null;
-      }
-      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30 && preferences.reminderWindows.day30 === false) {
-        return null;
-      }
-      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_7 && preferences.reminderWindows.day7 === false) {
-        return null;
-      }
-      if (type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRED && preferences.reminderWindows.onExpiry === false) {
-        return null;
-      }
-    }
-    if (preferences.inAppEnabled === false) {
-      return null;
-    }
-    const resolvedPriority = priority || resolveDefaultPriority(type);
-    const notification = new Notification({
-      recipient: targetUserId,
-      type,
-      title,
-      message,
-      relatedEntityType,
-      relatedEntityId,
-      priority: resolvedPriority,
-      link,
-      metadata,
-      expiresAt
-    });
-    await notification.save(session ? { session } : void 0);
-    if (sendEmailAlert && preferences.emailEnabled !== false) {
-      User.findById(targetUserId).select("email name").then((user) => {
-        if (user && user.email) {
-          sendEmail({
-            to: user.email,
-            subject: `[DoCA Legal Metrology] ${title}`,
-            text: `${message}
-
-Access details at: ${link}`,
-            html: `
-                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b;">
-                  <h2 style="color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Legal Metrology Verification Alert</h2>
-                  <p>Dear ${user.name},</p>
-                  <div style="background-color: #f8fafc; border-left: 4px solid #0284c7; padding: 12px 16px; margin: 16px 0;">
-                    <h4 style="margin: 0 0 6px 0; color: #0369a1;">${title}</h4>
-                    <p style="margin: 0;">${message}</p>
-                  </div>
-                  ${link ? `<p><a href="${link}" style="display: inline-block; padding: 10px 18px; background-color: #0284c7; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: bold;">View Details</a></p>` : ""}
-                  <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 24px;" />
-                  <p style="font-size: 12px; color: #64748b;">Department of Consumer Affairs (DoCA), Ministry of Consumer Affairs, Food & Public Distribution, Government of India.</p>
-                </div>
-              `
-          }).catch((err) => console.error("[EMAIL ERROR]", err.message));
-        }
-      }).catch((err) => console.error("[NOTIFICATION USER LOOKUP ERROR]", err.message));
-    }
-    return notification;
-  } catch (error) {
-    console.error("[NOTIFICATION SERVICE ERROR] Failed to create notification:", error.message);
-    return null;
-  }
-}
-
-// backend/services/applicationWorkflowService.js
+init_auditService();
+init_notificationService();
 var validateTransition = (currentStatus, targetStatus) => {
   const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] || [];
   if (!allowed.includes(targetStatus)) {
@@ -5348,7 +6190,18 @@ var getApplications = asyncHandler(async (req, res) => {
   }
   const statusFilter = req.query.applicationStatus || req.query.status;
   if (statusFilter) {
-    filter.currentStatus = statusFilter;
+    if (statusFilter === "PENDING") {
+      filter.currentStatus = {
+        $in: [
+          APPLICATION_STATUSES.SUBMITTED,
+          APPLICATION_STATUSES.UNDER_REVIEW,
+          APPLICATION_STATUSES.SCHEDULED,
+          APPLICATION_STATUSES.INSPECTION
+        ]
+      };
+    } else {
+      filter.currentStatus = statusFilter;
+    }
   }
   if (req.query.applicationType) {
     filter.applicationType = req.query.applicationType;
@@ -5383,7 +6236,7 @@ var getApplications = asyncHandler(async (req, res) => {
     ];
   }
   const [applications, total] = await Promise.all([
-    VerificationApplication.find(filter).populate("stakeholder", "businessName tradeLicenseNumber registeredAddress").populate("instrument", "instrumentId category instrumentType serialNumber manufacturer capacity accuracyClass").populate("assignedLMO", "name email phone designation").populate("reviewedBy", "name email role").sort(sort).skip(skip).limit(limit),
+    VerificationApplication.find(filter).populate("stakeholder", "businessName tradeLicenseNumber registeredAddress").populate("instrument", "instrumentId category instrumentType serialNumber manufacturer capacity accuracyClass").populate("assignedLMO", "name email phone designation").populate("reviewedBy", "name email role").sort(sort).skip(skip).limit(limit).lean(),
     VerificationApplication.countDocuments(filter)
   ]);
   return ApiResponse.success(
@@ -5786,6 +6639,8 @@ var GATC = import_mongoose17.default.model("GATC", gatcSchema);
 
 // backend/controllers/scheduleController.js
 init_constants();
+init_auditService();
+init_notificationService();
 
 // backend/utils/transactionHelper.js
 var import_mongoose18 = __toESM(require("mongoose"), 1);
@@ -5823,6 +6678,8 @@ init_Instrument();
 init_Stakeholder();
 init_User();
 init_constants();
+init_auditService();
+init_notificationService();
 var ACTIVE_SCHEDULE_STATUSES = [
   SCHEDULE_STATUSES.PENDING,
   SCHEDULE_STATUSES.CONFIRMED,
@@ -6664,7 +7521,7 @@ var getSchedules = asyncHandler(async (req, res) => {
     filter.scheduledDate = { $lte: new Date(endDate) };
   }
   const [schedules, total] = await Promise.all([
-    VerificationSchedule.find(filter).populate("application", "applicationNumber currentStatus verificationLocation applicationType").populate("instrument", "instrumentId category serialNumber manufacturer").populate("stakeholder", "businessName tradeLicenseNumber").populate("assignedOfficer", "name email phone designation").populate("assignedFieldOfficer", "name email phone designation").populate("verificationCenter", "name code address capacityPerDay").sort(sort).skip(skip).limit(limit),
+    VerificationSchedule.find(filter).populate("application", "applicationNumber currentStatus verificationLocation applicationType").populate("instrument", "instrumentId category serialNumber manufacturer").populate("stakeholder", "businessName tradeLicenseNumber").populate("assignedOfficer", "name email phone designation").populate("assignedFieldOfficer", "name email phone designation").populate("verificationCenter", "name code address capacityPerDay").sort(sort).skip(skip).limit(limit).lean(),
     VerificationSchedule.countDocuments(filter)
   ]);
   return ApiResponse.success(
@@ -6874,7 +7731,9 @@ var import_mongoose21 = __toESM(require("mongoose"), 1);
 init_VerificationInspection();
 init_VerificationApplication();
 init_VerificationSchedule();
+init_AuditLog();
 init_constants();
+init_auditService();
 
 // backend/services/inspectionService.js
 init_VerificationInspection();
@@ -6883,7 +7742,10 @@ init_VerificationApplication();
 init_VerificationResult();
 init_Instrument();
 init_Stakeholder();
+init_AuditLog();
 init_constants();
+init_auditService();
+init_notificationService();
 
 // backend/services/certificateService.js
 var import_crypto3 = __toESM(require("crypto"), 1);
@@ -6893,6 +7755,7 @@ init_VerificationApplication();
 init_Instrument();
 init_Stakeholder();
 init_User();
+init_Notification();
 
 // backend/services/qrService.js
 var import_qrcode = __toESM(require("qrcode"), 1);
@@ -7070,6 +7933,8 @@ async function generateCertificatePDF({
 }
 
 // backend/services/certificateService.js
+init_notificationService();
+init_auditService();
 init_constants();
 init_env();
 function getDynamicStatus(certificate) {
@@ -7199,6 +8064,31 @@ async function generateCertificateForInspection({ inspectionId, user }) {
         status: INSTRUMENT_STATUSES.ACTIVE_VERIFIED,
         lastVerificationDate: validFrom,
         nextVerificationDueDate: validUntil
+      },
+      session ? { session } : void 0
+    );
+    await Notification.updateMany(
+      {
+        instrument: instrument._id,
+        type: {
+          $in: [
+            NOTIFICATION_TYPES.VERIFICATION_REMINDER,
+            NOTIFICATION_TYPES.VERIFICATION_WARNING,
+            NOTIFICATION_TYPES.VERIFICATION_URGENT,
+            NOTIFICATION_TYPES.VERIFICATION_EXPIRED,
+            NOTIFICATION_TYPES.VERIFICATION_DUE,
+            NOTIFICATION_TYPES.VERIFICATION_OVERDUE
+          ]
+        },
+        isRead: false
+      },
+      {
+        $set: {
+          isRead: true,
+          readAt: /* @__PURE__ */ new Date(),
+          "metadata.supersededByReverification": true,
+          "metadata.newCertificateNumber": certificateNumber
+        }
       },
       session ? { session } : void 0
     );
@@ -8568,6 +9458,8 @@ init_VerificationApplication();
 init_VerificationInspection();
 init_Instrument();
 init_constants();
+init_auditService();
+init_notificationService();
 var submitVerificationVerdict = asyncHandler(async (req, res) => {
   const {
     applicationId,
@@ -8754,10 +9646,25 @@ var getCertificates = asyncHandler(async (req, res) => {
   }
   if (req.query.status || req.query.certificateStatus) {
     const statusQuery = req.query.status || req.query.certificateStatus;
-    filter.$or = [
-      { certificateStatus: statusQuery },
-      { status: statusQuery }
-    ];
+    const now = /* @__PURE__ */ new Date();
+    if (statusQuery === "ACTIVE" || statusQuery === "VALID") {
+      filter.$or = [
+        { certificateStatus: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } },
+        { status: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } }
+      ];
+      filter.validUntil = { $gte: now };
+    } else if (statusQuery === "EXPIRED") {
+      filter.$or = [
+        { certificateStatus: CERTIFICATE_STATUSES.EXPIRED },
+        { status: CERTIFICATE_STATUSES.EXPIRED },
+        { validUntil: { $lt: now } }
+      ];
+    } else {
+      filter.$or = [
+        { certificateStatus: statusQuery },
+        { status: statusQuery }
+      ];
+    }
   }
   if (req.query.search) {
     const searchRegex = { $regex: req.query.search, $options: "i" };
@@ -8911,362 +9818,23 @@ var import_express10 = require("express");
 
 // backend/controllers/notificationController.js
 var import_mongoose23 = __toESM(require("mongoose"), 1);
-
-// backend/services/expiryService.js
-init_Certificate();
-init_Instrument();
-init_VerificationApplication();
-init_Stakeholder();
-init_User();
-init_constants();
-init_env();
-function calculateCertificateDynamicStatus(certificate, expiringDays = 30, referenceDate = /* @__PURE__ */ new Date()) {
-  if (!certificate) return null;
-  const certStatus = certificate.certificateStatus || certificate.status;
-  if (certStatus === CERTIFICATE_STATUSES.REVOKED || certificate.revokedAt) {
-    return DYNAMIC_CERTIFICATE_STATUSES.REVOKED;
-  }
-  if (certStatus === CERTIFICATE_STATUSES.CANCELLED || certificate.cancelledAt) {
-    return DYNAMIC_CERTIFICATE_STATUSES.CANCELLED;
-  }
-  if (!certificate.validUntil) {
-    return certStatus || DYNAMIC_CERTIFICATE_STATUSES.ACTIVE;
-  }
-  const now = new Date(referenceDate);
-  const validUntil = new Date(certificate.validUntil);
-  if (validUntil.getTime() < now.getTime()) {
-    return DYNAMIC_CERTIFICATE_STATUSES.EXPIRED;
-  }
-  const diffDays = Math.ceil((validUntil.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24));
-  if (diffDays <= expiringDays && diffDays >= 0) {
-    return DYNAMIC_CERTIFICATE_STATUSES.EXPIRING_SOON;
-  }
-  return DYNAMIC_CERTIFICATE_STATUSES.ACTIVE;
-}
-function calculateInstrumentDueStatus(instrument, reminderThresholdDays = 30, referenceDate = /* @__PURE__ */ new Date()) {
-  if (!instrument || !instrument.nextVerificationDueDate) {
-    return INSTRUMENT_DUE_STATUSES.UP_TO_DATE;
-  }
-  const now = new Date(referenceDate);
-  const dueDate = new Date(instrument.nextVerificationDueDate);
-  if (dueDate.getTime() < now.getTime()) {
-    return INSTRUMENT_DUE_STATUSES.OVERDUE;
-  }
-  const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24));
-  if (diffDays <= reminderThresholdDays && diffDays >= 0) {
-    return INSTRUMENT_DUE_STATUSES.DUE_SOON;
-  }
-  return INSTRUMENT_DUE_STATUSES.UP_TO_DATE;
-}
-async function checkExpiringCertificates({
-  reminderWindows = ENV.REMINDER_WINDOWS,
-  now = /* @__PURE__ */ new Date()
-} = {}) {
-  const referenceDate = new Date(now);
-  const certificates = await Certificate.find({
-    certificateStatus: {
-      $nin: [CERTIFICATE_STATUSES.REVOKED, CERTIFICATE_STATUSES.CANCELLED]
-    },
-    status: {
-      $nin: [CERTIFICATE_STATUSES.REVOKED, CERTIFICATE_STATUSES.CANCELLED]
-    },
-    revokedAt: null
-  }).populate({
-    path: "stakeholder",
-    select: "user businessName tradeLicenseNumber"
-  });
-  const summary = {
-    totalChecked: certificates.length,
-    activeCount: 0,
-    expiringSoonCount: 0,
-    expiredCount: 0,
-    remindersSent: 0,
-    duplicatesPrevented: 0,
-    details: []
-  };
-  const sortedWindows = [...reminderWindows].sort((a, b) => a - b);
-  for (const cert of certificates) {
-    const dynamicStatus = calculateCertificateDynamicStatus(cert, 30, referenceDate);
-    const recipientUserId = cert.stakeholder?.user;
-    if (!recipientUserId) {
-      continue;
-    }
-    if (dynamicStatus === DYNAMIC_CERTIFICATE_STATUSES.EXPIRED) {
-      summary.expiredCount++;
-      const existingExpiredNotice = await Notification.findOne({
-        recipient: recipientUserId,
-        type: NOTIFICATION_TYPES.CERTIFICATE_EXPIRED,
-        relatedEntityId: cert._id
-      });
-      if (!existingExpiredNotice) {
-        await createNotification({
-          recipient: recipientUserId,
-          type: NOTIFICATION_TYPES.CERTIFICATE_EXPIRED,
-          title: `Verification Certificate Expired: ${cert.certificateNumber}`,
-          message: `Statutory verification certificate ${cert.certificateNumber} has expired on ${new Date(cert.validUntil).toLocaleDateString("en-IN")}. Please submit a Re-Verification application immediately.`,
-          relatedEntityType: "Certificate",
-          relatedEntityId: cert._id,
-          priority: NOTIFICATION_PRIORITIES.URGENT,
-          link: `/certificates/${cert._id}`,
-          metadata: {
-            certificateNumber: cert.certificateNumber,
-            validUntil: cert.validUntil,
-            isExpired: true
-          }
-        });
-        summary.remindersSent++;
-      } else {
-        summary.duplicatesPrevented++;
-      }
-    } else {
-      const validUntil = new Date(cert.validUntil);
-      const daysRemaining = Math.ceil((validUntil.getTime() - referenceDate.getTime()) / (1e3 * 60 * 60 * 24));
-      if (daysRemaining <= 30) {
-        summary.expiringSoonCount++;
-      } else {
-        summary.activeCount++;
-      }
-      let matchedWindow = null;
-      for (const windowDays of sortedWindows) {
-        if (daysRemaining <= windowDays && daysRemaining > 0) {
-          matchedWindow = windowDays;
-          break;
-        }
-      }
-      if (matchedWindow !== null) {
-        let reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30;
-        let priority = NOTIFICATION_PRIORITIES.HIGH;
-        if (matchedWindow <= 7) {
-          reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_7;
-          priority = NOTIFICATION_PRIORITIES.HIGH;
-        } else if (matchedWindow <= 30) {
-          reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30;
-          priority = NOTIFICATION_PRIORITIES.HIGH;
-        } else if (matchedWindow <= 60) {
-          reminderType = NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_60;
-          priority = NOTIFICATION_PRIORITIES.MEDIUM;
-        }
-        const existingReminder = await Notification.findOne({
-          recipient: recipientUserId,
-          type: reminderType,
-          relatedEntityId: cert._id
-        });
-        if (!existingReminder) {
-          await createNotification({
-            recipient: recipientUserId,
-            type: reminderType,
-            title: `Certificate Expiring in ${daysRemaining} Days (${cert.certificateNumber})`,
-            message: `Verification certificate ${cert.certificateNumber} is expiring on ${validUntil.toLocaleDateString("en-IN")}. Submit your annual re-verification application soon.`,
-            relatedEntityType: "Certificate",
-            relatedEntityId: cert._id,
-            priority,
-            link: `/certificates/${cert._id}`,
-            metadata: {
-              certificateNumber: cert.certificateNumber,
-              validUntil: cert.validUntil,
-              daysRemaining,
-              windowDays: matchedWindow
-            }
-          });
-          summary.remindersSent++;
-        } else {
-          summary.duplicatesPrevented++;
-        }
-      }
-    }
-  }
-  return summary;
-}
-async function checkInstrumentsDue({
-  reminderThreshold = 30,
-  now = /* @__PURE__ */ new Date()
-} = {}) {
-  const referenceDate = new Date(now);
-  const instruments = await Instrument.find({
-    isActive: true,
-    nextVerificationDueDate: { $ne: null }
-  }).populate({
-    path: "stakeholder",
-    select: "user businessName tradeLicenseNumber"
-  });
-  const summary = {
-    totalChecked: instruments.length,
-    upToDateCount: 0,
-    dueSoonCount: 0,
-    overdueCount: 0,
-    alertsSent: 0,
-    duplicatesPrevented: 0
-  };
-  for (const inst of instruments) {
-    const dueStatus = calculateInstrumentDueStatus(inst, reminderThreshold, referenceDate);
-    const recipientUserId = inst.stakeholder?.user;
-    if (!recipientUserId) {
-      continue;
-    }
-    const dueDateStr = new Date(inst.nextVerificationDueDate).toISOString().split("T")[0];
-    if (dueStatus === INSTRUMENT_DUE_STATUSES.OVERDUE) {
-      summary.overdueCount++;
-      const existingOverdue = await Notification.findOne({
-        recipient: recipientUserId,
-        type: NOTIFICATION_TYPES.VERIFICATION_OVERDUE,
-        relatedEntityId: inst._id,
-        "metadata.dueDate": dueDateStr
-      });
-      if (!existingOverdue) {
-        await createNotification({
-          recipient: recipientUserId,
-          type: NOTIFICATION_TYPES.VERIFICATION_OVERDUE,
-          title: `Instrument Verification Overdue: ${inst.instrumentId || inst.serialNumber}`,
-          message: `Instrument ${inst.instrumentId || inst.serialNumber} was due for verification on ${new Date(inst.nextVerificationDueDate).toLocaleDateString("en-IN")} and is now overdue. Continued commercial use without verification violates the Legal Metrology Act.`,
-          relatedEntityType: "Instrument",
-          relatedEntityId: inst._id,
-          priority: NOTIFICATION_PRIORITIES.URGENT,
-          link: `/instruments/${inst._id}`,
-          metadata: {
-            instrumentId: inst.instrumentId,
-            serialNumber: inst.serialNumber,
-            dueDate: dueDateStr,
-            dueStatus: INSTRUMENT_DUE_STATUSES.OVERDUE
-          }
-        });
-        summary.alertsSent++;
-      } else {
-        summary.duplicatesPrevented++;
-      }
-    } else if (dueStatus === INSTRUMENT_DUE_STATUSES.DUE_SOON) {
-      summary.dueSoonCount++;
-      const existingDue = await Notification.findOne({
-        recipient: recipientUserId,
-        type: NOTIFICATION_TYPES.VERIFICATION_DUE,
-        relatedEntityId: inst._id,
-        "metadata.dueDate": dueDateStr
-      });
-      if (!existingDue) {
-        await createNotification({
-          recipient: recipientUserId,
-          type: NOTIFICATION_TYPES.VERIFICATION_DUE,
-          title: `Instrument Verification Due Soon: ${inst.instrumentId || inst.serialNumber}`,
-          message: `Instrument ${inst.instrumentId || inst.serialNumber} is scheduled for statutory verification on ${new Date(inst.nextVerificationDueDate).toLocaleDateString("en-IN")}. Please submit your verification request.`,
-          relatedEntityType: "Instrument",
-          relatedEntityId: inst._id,
-          priority: NOTIFICATION_PRIORITIES.HIGH,
-          link: `/instruments/${inst._id}`,
-          metadata: {
-            instrumentId: inst.instrumentId,
-            serialNumber: inst.serialNumber,
-            dueDate: dueDateStr,
-            dueStatus: INSTRUMENT_DUE_STATUSES.DUE_SOON
-          }
-        });
-        summary.alertsSent++;
-      } else {
-        summary.duplicatesPrevented++;
-      }
-    } else {
-      summary.upToDateCount++;
-    }
-  }
-  return summary;
-}
-async function checkOverdueApplications({
-  overdueDays = ENV.OVERDUE_APPLICATION_DAYS,
-  now = /* @__PURE__ */ new Date()
-} = {}) {
-  const referenceDate = new Date(now);
-  const cutoffDate = new Date(referenceDate.getTime() - overdueDays * 24 * 60 * 60 * 1e3);
-  const pendingApps = await VerificationApplication.find({
-    currentStatus: {
-      $in: [APPLICATION_STATUSES.SUBMITTED, APPLICATION_STATUSES.UNDER_REVIEW]
-    },
-    submittedAt: { $lte: cutoffDate }
-  }).populate("assignedLMO", "_id name email");
-  const summary = {
-    totalChecked: pendingApps.length,
-    overdueApplications: pendingApps.length,
-    alertsSent: 0,
-    duplicatesPrevented: 0
-  };
-  const adminUsers = await User.find({
-    role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] },
-    isActive: true
-  }).select("_id");
-  for (const app2 of pendingApps) {
-    const targetUserId = app2.assignedLMO?._id || adminUsers[0]?._id;
-    if (!targetUserId) continue;
-    const existingAlert = await Notification.findOne({
-      recipient: targetUserId,
-      type: NOTIFICATION_TYPES.SYSTEM_ALERT,
-      relatedEntityId: app2._id,
-      "metadata.alertCategory": "OVERDUE_APPLICATION_SLA"
-    });
-    if (!existingAlert) {
-      await createNotification({
-        recipient: targetUserId,
-        type: NOTIFICATION_TYPES.SYSTEM_ALERT,
-        title: `Overdue Application SLA Alert: ${app2.applicationNumber}`,
-        message: `Application ${app2.applicationNumber} has been pending review for over ${overdueDays} days without schedule or decision. Immediate action required.`,
-        relatedEntityType: "Application",
-        relatedEntityId: app2._id,
-        priority: NOTIFICATION_PRIORITIES.HIGH,
-        link: `/applications/${app2._id}`,
-        metadata: {
-          applicationNumber: app2.applicationNumber,
-          submittedAt: app2.submittedAt,
-          alertCategory: "OVERDUE_APPLICATION_SLA"
-        }
-      });
-      summary.alertsSent++;
-    } else {
-      summary.duplicatesPrevented++;
-    }
-  }
-  return summary;
-}
-async function runExpiryAndDueDateChecks({
-  now = /* @__PURE__ */ new Date(),
-  triggeredBy = null
-} = {}) {
-  const startTime = Date.now();
-  const executionDate = new Date(now);
-  const [certificates, instruments, applications] = await Promise.all([
-    checkExpiringCertificates({ now: executionDate }),
-    checkInstrumentsDue({ now: executionDate }),
-    checkOverdueApplications({ now: executionDate })
-  ]);
-  const durationMs = Date.now() - startTime;
-  const result = {
-    success: true,
-    executedAt: executionDate.toISOString(),
-    durationMs,
-    certificates,
-    instruments,
-    applications
-  };
-  if (triggeredBy) {
-    await logAuditEvent({
-      user: triggeredBy._id || triggeredBy,
-      userRole: triggeredBy.role || "SYSTEM",
-      userEmail: triggeredBy.email || "system@doca.gov.in",
-      action: AUDIT_ACTIONS.EXPIRY_CHECK_EXECUTED,
-      entity: "System",
-      metadata: {
-        certificatesChecked: certificates.totalChecked,
-        certificatesExpired: certificates.expiredCount,
-        instrumentsChecked: instruments.totalChecked,
-        instrumentsOverdue: instruments.overdueCount,
-        applicationsOverdue: applications.overdueApplications,
-        durationMs
-      }
-    });
-  }
-  return result;
-}
-
-// backend/controllers/notificationController.js
+init_Notification();
+init_notificationService();
+init_expiryService();
+init_auditService();
 init_constants();
 var getMyNotifications = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPaginationParams(req.query);
-  const filter = { recipient: req.user._id };
+  const isAdmin = [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(req.user.role);
+  let filter;
+  if (isAdmin && (req.query.all === "true" || req.query.scope === "all")) {
+    filter = {};
+    if (req.query.recipient) {
+      filter.recipient = req.query.recipient;
+    }
+  } else {
+    filter = { recipient: req.user._id };
+  }
   if (req.query.isRead !== void 0) {
     filter.isRead = req.query.isRead === "true";
   }
@@ -9279,12 +9847,15 @@ var getMyNotifications = asyncHandler(async (req, res) => {
   if (req.query.relatedEntityType) {
     filter.relatedEntityType = req.query.relatedEntityType;
   }
+  if (req.query.instrument) {
+    filter.$or = [{ instrument: req.query.instrument }, { relatedEntityId: req.query.instrument }];
+  }
   if (req.query.search) {
     const searchRegex = new RegExp(req.query.search, "i");
     filter.$or = [{ title: searchRegex }, { message: searchRegex }];
   }
   const [notifications, total, unreadCount] = await Promise.all([
-    Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Notification.countDocuments(filter),
     Notification.countDocuments({ recipient: req.user._id, isRead: false })
   ]);
@@ -9395,6 +9966,7 @@ init_VerificationApplication();
 init_VerificationSchedule();
 init_VerificationResult();
 init_Certificate();
+init_AuditLog();
 init_constants();
 var getAdminDashboard = asyncHandler(async (req, res) => {
   const now = /* @__PURE__ */ new Date();
@@ -10080,6 +10652,7 @@ init_Certificate();
 init_Instrument();
 init_User();
 init_VerificationSchedule();
+init_AuditLog();
 init_constants();
 function escapeCsvCell(val) {
   if (val === null || val === void 0) return '""';
@@ -10533,7 +11106,7 @@ var getAuditLogs = asyncHandler(async (req, res) => {
     };
   }
   const [logs, total] = await Promise.all([
-    AuditLog.find(filter).populate("user", "name email role designation").sort({ timestamp: -1 }).skip(skip).limit(limit),
+    AuditLog.find(filter).populate("user", "name email role designation").sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
     AuditLog.countDocuments(filter)
   ]);
   return ApiResponse.success(
@@ -10692,6 +11265,7 @@ init_VerificationApplication();
 init_VerificationSchedule();
 init_VerificationInspection();
 init_Certificate();
+init_AuditLog();
 var getAdminDashboardSummary = asyncHandler(async (req, res) => {
   const now = /* @__PURE__ */ new Date();
   const startOfToday = new Date(now);
@@ -11772,6 +12346,7 @@ init_Certificate();
 init_VerificationSchedule();
 init_Stakeholder();
 init_User();
+init_AuditLog();
 init_constants();
 function escapeCsvCell2(val) {
   if (val === null || val === void 0) return '""';
@@ -12425,6 +13000,8 @@ async function startServer() {
       try {
         const { seedAdminUser: seedAdminUser2 } = await Promise.resolve().then(() => (init_adminSeedService(), adminSeedService_exports));
         await seedAdminUser2();
+        const { startExpiryScheduler: startExpiryScheduler2 } = await Promise.resolve().then(() => (init_expiryScheduler(), expiryScheduler_exports));
+        startExpiryScheduler2();
       } catch (seedErr) {
         console.error("[ADMIN SEED WARNING]", seedErr?.message);
       }

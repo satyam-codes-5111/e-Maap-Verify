@@ -1,9 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/splash" />
-    </item>
+    <!-- Clean Solid White Background -->
+    <item android:drawable="@color/splash_background" />
+
+    <!-- Top Edge-to-Edge Tricolor Bar -->
+    <item
+        android:gravity="top"
+        android:height="13dp"
+        android:drawable="@drawable/splash_top_tricolor" />
+
+    <!-- Center Precision Emblem (Pure VectorDrawable XML) -->
+    <item
+        android:gravity="center"
+        android:width="120dp"
+        android:height="120dp"
+        android:drawable="@drawable/ic_metrology_scale" />
+
+    <!-- Bottom Edge-to-Edge Tricolor Bar -->
+    <item
+        android:gravity="bottom"
+        android:height="15dp"
+        android:drawable="@drawable/splash_bottom_tricolor" />
 </layer-list>

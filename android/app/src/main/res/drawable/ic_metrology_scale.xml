@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Outer Circular Seal Background Plate -->
+    <path
+        android:fillColor="#0D123B6D"
+        android:pathData="M60,6 A54,54 0 1,0 60,114 A54,54 0 1,0 60,6 Z" />
+
+    <!-- Outer Precision Ring (Navy) -->
+    <path
+        android:strokeColor="#123B6D"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M60,10 A50,50 0 1,0 60,110 A50,50 0 1,0 60,10 Z" />
+
+    <!-- Inner Decorative Dashed / Calibration Ring (Saffron & Green Accents) -->
+    <path
+        android:strokeColor="#FF9933"
+        android:strokeWidth="1.2"
+        android:pathData="M60,16 A44,44 0 1,0 60,104 A44,44 0 1,0 60,16 Z" />
+
+    <!-- Central Weighted Base (Stepped Pedestal) -->
+    <path
+        android:fillColor="#123B6D"
+        android:pathData="M42,96 L78,96 L76,92 L44,92 Z" />
+    <path
+        android:fillColor="#0D2B4F"
+        android:pathData="M38,100 L82,100 L80,96 L40,96 Z" />
+    <!-- Green Base Line -->
+    <path
+        android:strokeColor="#138808"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M36,102 L84,102" />
+
+    <!-- Central Vertical Mast / Column -->
+    <path
+        android:fillColor="#123B6D"
+        android:pathData="M58,34 L62,34 L62,92 L58,92 Z" />
+
+    <!-- Mast Decorative Finial / Pivot Ring at Top -->
+    <path
+        android:fillColor="#FF9933"
+        android:pathData="M60,26 A5,5 0 1,0 60,36 A5,5 0 1,0 60,26 Z" />
+    <path
+        android:fillColor="#123B6D"
+        android:pathData="M60,28 A3,3 0 1,0 60,34 A3,3 0 1,0 60,28 Z" />
+
+    <!-- Equilibrium Index / Pointer Needle (Pointing to True Zero - Perfect Calibration) -->
+    <path
+        android:strokeColor="#FF9933"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M60,36 L60,23" />
+    <path
+        android:fillColor="#FF9933"
+        android:pathData="M60,21 L62,25 L58,25 Z" />
+
+    <!-- Horizontal Balance Beam -->
+    <path
+        android:strokeColor="#123B6D"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M24,38 L96,38" />
+
+    <!-- Beam End Pivot Rings -->
+    <path
+        android:fillColor="#0D2B4F"
+        android:pathData="M24,38 A3,3 0 1,0 24,44 A3,3 0 1,0 24,38 Z" />
+    <path
+        android:fillColor="#0D2B4F"
+        android:pathData="M96,38 A3,3 0 1,0 96,44 A3,3 0 1,0 96,38 Z" />
+
+    <!-- Left Suspension Strings (Cables) -->
+    <path
+        android:strokeColor="#64748B"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M24,42 L14,68 M24,42 L34,68" />
+
+    <!-- Left Weighing Pan (Curved Bowl) -->
+    <path
+        android:strokeColor="#123B6D"
+        android:strokeWidth="2"
+        android:fillColor="#EBF3FC"
+        android:pathData="M12,68 C12,77 36,77 36,68 Z" />
+    <!-- Saffron Pan Rim Accent -->
+    <path
+        android:strokeColor="#FF9933"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M11,68 L37,68" />
+
+    <!-- Right Suspension Strings (Cables) -->
+    <path
+        android:strokeColor="#64748B"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M96,42 L86,68 M96,42 L106,68" />
+
+    <!-- Right Weighing Pan (Curved Bowl) -->
+    <path
+        android:strokeColor="#123B6D"
+        android:strokeWidth="2"
+        android:fillColor="#EBF3FC"
+        android:pathData="M84,68 C84,77 108,77 108,68 Z" />
+    <!-- Saffron Pan Rim Accent -->
+    <path
+        android:strokeColor="#FF9933"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M83,68 L109,68" />
+
+    <!-- Center Fulcrum Cap -->
+    <path
+        android:fillColor="#0D2B4F"
+        android:strokeColor="#FF9933"
+        android:strokeWidth="1"
+        android:pathData="M60,34 A4,4 0 1,0 60,42 A4,4 0 1,0 60,34 Z" />
+
+</vector>

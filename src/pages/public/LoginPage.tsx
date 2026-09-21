@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../context/AuthContext';
-import heroImage from './images/legal-metrology-hero.jpg';
+import heroImage from './images/legal-metrology-hero.webp';
 
 import { getErrorMessage } from '../../services/api';
 import { UserRole } from '../../types';

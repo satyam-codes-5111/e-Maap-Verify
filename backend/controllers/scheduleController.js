@@ -571,7 +571,8 @@ export const getSchedules = asyncHandler(async (req, res) => {
       .populate('verificationCenter', 'name code address capacityPerDay')
       .sort(sort)
       .skip(skip)
-      .limit(limit),
+      .limit(limit)
+      .lean(),
     VerificationSchedule.countDocuments(filter),
   ]);
 

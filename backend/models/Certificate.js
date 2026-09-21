@@ -224,6 +224,8 @@ certificateSchema.pre('validate', function (next) {
 certificateSchema.index({ validUntil: 1, certificateStatus: 1 });
 certificateSchema.index({ validUntil: 1, status: 1 });
 certificateSchema.index({ stakeholder: 1, certificateStatus: 1 });
+certificateSchema.index({ stakeholder: 1, status: 1 });
+certificateSchema.index({ stakeholder: 1, createdAt: -1 });
 certificateSchema.index({ createdAt: -1 });
 
 export const Certificate = mongoose.model('Certificate', certificateSchema);

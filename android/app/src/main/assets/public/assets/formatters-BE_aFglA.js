@@ -1,0 +1,1 @@
+const u=(r,n,e)=>{if(r&&typeof r=="object"){const l=r.value!==void 0&&r.value!==null?r.value:"",o=r.unit||n||"";return`${l} ${o}`.trim()||"N/A"}return e!=null&&e!==""?`${e} ${n||"kg"}`.trim():r!=null&&r!==""?`${r} ${n||""}`.trim():"N/A"},t=r=>r?String(r.verificationScaleInterval_e||r.verificationScaleInterval||"1g"):"1g";export{t as a,u as f};

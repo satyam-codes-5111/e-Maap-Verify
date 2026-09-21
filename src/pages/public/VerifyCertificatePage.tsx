@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import heroimage from "./images/image3.png"
+import heroimage from "./images/image3.webp";
 import {
   ShieldCheck,
   Search,

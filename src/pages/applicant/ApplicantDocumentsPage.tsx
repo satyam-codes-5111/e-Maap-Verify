@@ -15,6 +15,8 @@ import {
   UploadCloud,
   CheckCircle2,
   AlertTriangle,
+  ShieldCheck,
+  FileText,
 } from 'lucide-react';
 
 export const ApplicantDocumentsPage: React.FC = () => {
@@ -53,6 +55,7 @@ export const ApplicantDocumentsPage: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('document', selectedFile);
+      formData.append('docType', 'TRADE_LICENSE');
       const res = await stakeholderApi.uploadKycDoc(formData);
       if (res.success) {
         setToast({
@@ -78,7 +81,7 @@ export const ApplicantDocumentsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <PageHeader title="Statutory Documents & KYC" />
         <LoadingSkeleton rows={4} />
       </div>
@@ -98,7 +101,7 @@ export const ApplicantDocumentsPage: React.FC = () => {
         description="Verify your legal trade establishment to comply with Legal Metrology regulations"
         badge={<StatusBadge status={profile.kycStatus} size="md" />}
         breadcrumbs={[
-          { label: 'Dashboard', href: '/applicant/dashboard' },
+          { label: 'Dashboard', to: '/applicant/dashboard' },
           { label: 'Documents & KYC' },
         ]}
       />
@@ -106,38 +109,69 @@ export const ApplicantDocumentsPage: React.FC = () => {
       {/* KYC Status Overview */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-[#123B6D] flex items-center justify-center">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-slate-900">{profile.businessName}</h2>
-            <p className="text-xs text-slate-500">
-              Registration Status: <StatusBadge status={profile.kycStatus} size="sm" />
-            </p>
+            <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+              <span>Registration Status:</span>
+              <StatusBadge status={profile.kycStatus} size="sm" />
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 text-xs">
           <div>
-            <span className="text-slate-400 block mb-0.5">Trade License Number:</span>
+            <span className="text-slate-400 block mb-0.5 font-bold uppercase text-[10px]">Trade License:</span>
             <span className="font-mono font-bold text-slate-800">
               {profile.tradeLicenseNumber || 'Pending Submission'}
             </span>
           </div>
           <div>
-            <span className="text-slate-400 block mb-0.5">GST Identification No:</span>
+            <span className="text-slate-400 block mb-0.5 font-bold uppercase text-[10px]">GSTIN:</span>
             <span className="font-mono font-bold text-slate-800">
               {profile.gstNumber || 'Pending Submission'}
             </span>
           </div>
           <div>
-            <span className="text-slate-400 block mb-0.5">PAN Number:</span>
+            <span className="text-slate-400 block mb-0.5 font-bold uppercase text-[10px]">PAN:</span>
             <span className="font-mono font-bold text-slate-800">
               {profile.panNumber || 'Pending Submission'}
             </span>
           </div>
         </div>
       </div>
+
+      {/* Uploaded Documents List */}
+      {profile.kycDocuments && profile.kycDocuments.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Uploaded Statutory Documents
+          </h3>
+          <div className="space-y-2">
+            {profile.kycDocuments.map((doc, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4 text-slate-500" />
+                  <div>
+                    <p className="font-bold text-slate-800">
+                      {doc.docType?.replace(/_/g, ' ') || 'Trade License'}
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Uploaded on {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : 'Active'}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge status={doc.verificationStatus || 'VERIFIED'} size="sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KYC Upload Box */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
@@ -149,32 +183,35 @@ export const ApplicantDocumentsPage: React.FC = () => {
         </div>
 
         <FileUploader
-          label="Select Statutory Identity File"
+          accept=".pdf,image/*"
+          maxSizeMb={10}
+          onFileSelected={(f) => setSelectedFile(f)}
           description="PDF or JPG up to 10MB"
-          selectedFile={selectedFile}
-          onFileSelect={setSelectedFile}
         />
 
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={handleUploadKyc}
-            disabled={uploading || !selectedFile}
-            className="px-5 py-2 text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition shadow-xs flex items-center gap-2 disabled:opacity-50"
-          >
-            {uploading ? (
-              <>
-                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Uploading...</span>
-              </>
-            ) : (
-              <>
-                <UploadCloud className="w-4 h-4" />
-                <span>Upload KYC Document</span>
-              </>
-            )}
-          </button>
-        </div>
+        {selectedFile && (
+          <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-200 text-xs">
+            <span className="font-semibold text-slate-800">{selectedFile.name}</span>
+            <button
+              type="button"
+              onClick={handleUploadKyc}
+              disabled={uploading}
+              className="px-4 py-1.5 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0D2B4F] rounded-lg transition shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {uploading ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-4 h-4" />
+                  <span>Submit Document</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

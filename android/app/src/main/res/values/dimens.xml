@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Splash Screen Dimensions -->
+    <dimen name="splash_icon_size">96dp</dimen>
+    <dimen name="splash_title_size">26sp</dimen>
+    <dimen name="splash_hindi_size">16sp</dimen>
+    <dimen name="splash_divider_width">110dp</dimen>
+    <dimen name="splash_divider_height">2.5dp</dimen>
+    <dimen name="splash_division_size">12sp</dimen>
+    <dimen name="splash_dept_size">12.5sp</dimen>
+    <dimen name="splash_gov_size">11.5sp</dimen>
+    <dimen name="splash_badge_text_size">10.5sp</dimen>
+    <dimen name="splash_top_bar_height">14dp</dimen>
+    <dimen name="splash_bottom_bar_height">16dp</dimen>
+</resources>

@@ -169,6 +169,7 @@ verificationApplicationSchema.virtual('uploadedDocuments')
   });
 
 verificationApplicationSchema.index({ stakeholder: 1, currentStatus: 1 });
+verificationApplicationSchema.index({ stakeholder: 1, createdAt: -1 });
 verificationApplicationSchema.index({ instrument: 1, currentStatus: 1 });
 verificationApplicationSchema.index({ assignedLMO: 1, currentStatus: 1 });
 verificationApplicationSchema.index({ createdAt: -1 });

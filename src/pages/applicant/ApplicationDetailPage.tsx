@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { applicationApi } from '../../services/applicationApi';
+import { certificateApi } from '../../services/certificateApi';
 import { VerificationApplicationItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +12,6 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 import { FileUploader } from '../../components/common/FileUploader';
 import { Modal } from '../../components/common/Modal';
-import { ScheduleVerificationModal } from '../../components/schedule/ScheduleVerificationModal';
 import { formatInstrumentCapacity } from '../../utils/formatters';
 import {
   FileCheck2,
@@ -21,14 +21,20 @@ import {
   MapPin,
   Clock,
   ArrowRight,
+  ArrowLeft,
   Upload,
   AlertCircle,
   CheckCircle2,
   Download,
   Building2,
-  FileSearch,
-  CalendarDays,
   ShieldCheck,
+  PhoneCall,
+  FileText,
+  Award,
+  ExternalLink,
+  DollarSign,
+  QrCode,
+  Info,
 } from 'lucide-react';
 
 export const ApplicationDetailPage: React.FC = () => {
@@ -36,15 +42,9 @@ export const ApplicationDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const isDepartmentalOfficer =
-    user?.role === 'SUPER_ADMIN' ||
-    user?.role === 'ADMIN' ||
-    user?.role === 'LEGAL_METROLOGY_OFFICER';
-
   const [app, setApp] = useState<VerificationApplicationItem | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
@@ -53,18 +53,8 @@ export const ApplicationDetailPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Review modal
-  const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [reviewRemarks, setReviewRemarks] = useState('');
-  const [reviewing, setReviewing] = useState(false);
-
-  // Approve modal
-  const [approveModalOpen, setApproveModalOpen] = useState(false);
-  const [approveRemarks, setApproveRemarks] = useState('');
-  const [approving, setApproving] = useState(false);
-
-  // Schedule modal
-  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  // Helpline modal
+  const [helplineModalOpen, setHelplineModalOpen] = useState(false);
 
   const fetchDetails = useCallback(async () => {
     if (!id) return;
@@ -96,99 +86,8 @@ export const ApplicationDetailPage: React.FC = () => {
     fetchDetails();
   }, [fetchDetails]);
 
-  // Applicant: Submit draft to department
-  const handleSubmitDraft = async () => {
-    if (!id) return;
-    setSubmitting(true);
-    try {
-      const res = await applicationApi.submitApplication(id);
-      if (res.success && res.data) {
-        setApp(res.data);
-        setToast({
-          id: String(Date.now()),
-          type: 'success',
-          title: 'Application Submitted',
-          message: 'Your verification application has been submitted to Legal Metrology for review.',
-        });
-        fetchDetails();
-      }
-    } catch (err: unknown) {
-      setToast({
-        id: String(Date.now()),
-        type: 'error',
-        title: 'Submission Error',
-        message: getErrorMessage(err),
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Department: Place under review
-  const handleReviewApplication = async () => {
-    if (!id) return;
-    setReviewing(true);
-    try {
-      const res = await applicationApi.reviewApplication(id, {
-        remarks: reviewRemarks.trim() || 'Application placed under formal technical scrutiny by officer',
-      });
-      if (res.success && res.data) {
-        setApp(res.data);
-        setToast({
-          id: String(Date.now()),
-          type: 'success',
-          title: 'Application Under Review',
-          message: 'Statutory scrutiny initiated. Application marked as UNDER REVIEW.',
-        });
-        setReviewModalOpen(false);
-        setReviewRemarks('');
-        fetchDetails();
-      }
-    } catch (err: unknown) {
-      setToast({
-        id: String(Date.now()),
-        type: 'error',
-        title: 'Review Error',
-        message: getErrorMessage(err),
-      });
-    } finally {
-      setReviewing(false);
-    }
-  };
-
-  // Department: Approve application
-  const handleApproveApplication = async () => {
-    if (!id) return;
-    setApproving(true);
-    try {
-      const res = await applicationApi.approveApplication(id, {
-        remarks: approveRemarks.trim() || 'Application verified and formally approved for verification scheduling',
-      });
-      if (res.success && res.data) {
-        setApp(res.data);
-        setToast({
-          id: String(Date.now()),
-          type: 'success',
-          title: 'Application Approved',
-          message: 'Statutory approval granted. Application is now ready for schedule allotment.',
-        });
-        setApproveModalOpen(false);
-        setApproveRemarks('');
-        fetchDetails();
-      }
-    } catch (err: unknown) {
-      setToast({
-        id: String(Date.now()),
-        type: 'error',
-        title: 'Approval Error',
-        message: getErrorMessage(err),
-      });
-    } finally {
-      setApproving(false);
-    }
-  };
-
-  const handleUploadDoc = async () => {
+  // Handle document upload
+  const handleUploadDocument = async () => {
     if (!id || !selectedFile) return;
     setUploading(true);
     try {
@@ -200,7 +99,7 @@ export const ApplicationDetailPage: React.FC = () => {
           id: String(Date.now()),
           type: 'success',
           title: 'Document Uploaded',
-          message: 'Document successfully attached to verification file.',
+          message: 'Supporting document successfully attached to application.',
         });
         setDocModalOpen(false);
         setSelectedFile(null);
@@ -218,441 +117,484 @@ export const ApplicationDetailPage: React.FC = () => {
     }
   };
 
+  // Download Acknowledgement Slip (printable HTML/Text blob)
+  const handleDownloadAcknowledgement = () => {
+    if (!app) return;
+    const content = `GOVERNMENT OF INDIA
+DEPARTMENT OF CONSUMER AFFAIRS
+LEGAL METROLOGY DIVISION
+=====================================================
+STATUTORY ACKNOWLEDGEMENT RECEIPT
+=====================================================
+Application Number: ${app.applicationNumber}
+Filing Date: ${new Date(app.createdAt).toLocaleString()}
+Status: ${app.currentStatus || app.status}
+Purpose: ${app.purpose || 'Verification'}
+
+APPLICANT / COMMERCIAL ESTABLISHMENT:
+Name: ${app.stakeholder?.businessName || user?.name || 'Registered Establishment'}
+Premises: ${app.instrument?.installationAddress?.premiseName || 'Registered Premises'}
+Address: ${app.instrument?.installationAddress?.addressLine || 'N/A'}, ${app.instrument?.installationAddress?.city || ''}
+
+INSTRUMENT DETAILS:
+Instrument: ${app.instrument?.instrumentName || app.instrument?.category}
+Category: ${app.instrument?.category}
+Manufacturer: ${app.instrument?.manufacturer || 'N/A'}
+Model Number: ${app.instrument?.modelNumber || 'N/A'}
+Serial Number: ${app.instrument?.serialNumber || 'N/A'}
+Capacity: ${formatInstrumentCapacity(app.instrument?.capacity, app.instrument?.unit, app.instrument?.maxCapacity)}
+
+FEE PARTICULARS:
+Fee Status: ${app.feeDetails?.feeStatus || 'PAID'}
+Amount: INR ${app.feeDetails?.amount || 'Statutory Fee Prescribed'}
+
+=====================================================
+This is a computer-generated statutory acknowledgement under
+the Legal Metrology (Enforcement) Rules, 2011.
+=====================================================`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Acknowledgement_${app.applicationNumber}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Loading Application..." />
-        <LoadingSkeleton rows={4} />
+        <LoadingSkeleton rows={2} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <LoadingSkeleton rows={4} />
+            <LoadingSkeleton rows={4} />
+          </div>
+          <div className="space-y-6">
+            <LoadingSkeleton rows={3} />
+            <LoadingSkeleton rows={3} />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !app) {
-    return <ErrorState message={error || 'Application not found'} onRetry={fetchDetails} />;
+    return (
+      <ErrorState
+        message={error || 'Application record could not be loaded.'}
+        onRetry={fetchDetails}
+      />
+    );
   }
 
-  const currentStatus = app.currentStatus || app.status;
-  const isDraft = currentStatus === 'DRAFT';
-  const isSubmitted = currentStatus === 'SUBMITTED';
-  const isUnderReview = currentStatus === 'UNDER_REVIEW';
-  const isApproved = currentStatus === 'APPROVED';
+  const currentStatus = app.currentStatus || app.status || 'SUBMITTED';
+  const assignedOfficer = app.assignedOfficer;
+  const scheduledDate = (app as any).scheduledDate || (app as any).inspectionDate;
+  const certificateId = (app as any).certificateId || (app as any).certificate?._id;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      <PageHeader
-        title={app.applicationNumber}
-        description={`Statutory Verification Application • Purpose: ${app.purpose || 'Verification'}`}
-        badge={<StatusBadge status={currentStatus} size="md" />}
-        breadcrumbs={[
-          {
-            label: 'Dashboard',
-            href: isDepartmentalOfficer ? '/admin/dashboard' : '/applicant/dashboard',
-          },
-          {
-            label: 'Applications',
-            href: isDepartmentalOfficer ? '/admin/applications' : '/applicant/applications',
-          },
-          { label: app.applicationNumber },
-        ]}
-        actions={
+      {/* 1. Statutory Header */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Link
+                to="/applicant/applications"
+                className="text-xs font-bold text-[#123B6D] hover:underline flex items-center gap-1 mr-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Applications</span>
+              </Link>
+              <span className="text-[10px] uppercase font-bold text-slate-400">
+                Statutory Filing
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight flex items-center gap-2">
+              <span>{app.applicationNumber}</span>
+              <StatusBadge status={currentStatus} size="md" />
+            </h1>
+            <p className="text-xs text-slate-500">
+              Purpose: <strong className="text-slate-700">{app.purpose || 'Verification'}</strong> •
+              Submitted on {new Date(app.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' })}
+            </p>
+          </div>
+
+          {/* Top Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Document attachment allowed across stages */}
             <button
               type="button"
-              onClick={() => setDocModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition"
+              onClick={handleDownloadAcknowledgement}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition shadow-2xs"
             >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Attach Document</span>
+              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <span>Download Acknowledgement</span>
             </button>
 
-            {/* Applicant: Submit draft */}
-            {isDraft && (
-              <button
-                type="button"
-                onClick={handleSubmitDraft}
-                disabled={submitting}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition shadow-xs disabled:opacity-50"
+            {certificateId && (
+              <Link
+                to={`/applicant/certificates`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition shadow-xs"
               >
-                {submitting && (
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                )}
-                <span>Submit to Department</span>
-              </button>
+                <Award className="w-4 h-4 text-emerald-200" />
+                <span>View Certificate</span>
+              </Link>
             )}
 
-            {/* Department Actions: Review & Approve & Schedule */}
-            {isDepartmentalOfficer && isSubmitted && (
-              <button
-                type="button"
-                onClick={() => setReviewModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition shadow-2xs"
-              >
-                <FileSearch className="w-3.5 h-3.5 text-amber-800" />
-                <span>Initiate Review</span>
-              </button>
-            )}
-
-            {isDepartmentalOfficer && isUnderReview && (
-              <button
-                type="button"
-                onClick={() => setApproveModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition shadow-xs"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Grant Statutory Approval</span>
-              </button>
-            )}
-
-            {isDepartmentalOfficer && isApproved && (
-              <button
-                type="button"
-                onClick={() => setScheduleModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition shadow-xs"
-              >
-                <CalendarDays className="w-3.5 h-3.5" />
-                <span>Schedule Verification</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setHelplineModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#123B6D] bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-[#123B6D]" />
+              <span>Officer Helpline</span>
+            </button>
           </div>
-        }
-      />
+        </div>
+      </div>
 
-      {/* Main Grid: Details + Timeline */}
+      {/* 2. Main Grid: Left (Instrument & Timeline) + Right (Officer, Schedule, Fee) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 2 Cols: Instrument & Verification Info */}
+        {/* Left Column (2 Cols) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Instrument Summary Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+          {/* Instrument Details Card */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <Scale className="w-4 h-4 text-teal-700" />
-                <span>Instrument Specifications</span>
-              </div>
-              <span className="text-xs text-slate-500 font-mono">
-                ID: {app.instrument?._id || 'N/A'}
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Scale className="w-4 h-4 text-[#123B6D]" />
+                <span>Commercial Instrument Details</span>
+              </h2>
+              <span className="text-xs font-mono font-bold text-[#123B6D]">
+                {app.instrument?.serialNumber || 'N/A'}
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-slate-400 block mb-0.5">Instrument Name:</span>
-                <span className="font-bold text-slate-800">
+              <div className="space-y-0.5">
+                <span className="text-slate-400 font-bold uppercase text-[10px]">Category & Name</span>
+                <p className="font-bold text-slate-900 text-sm">
                   {app.instrument?.instrumentName || app.instrument?.category}
-                </span>
+                </p>
+                <p className="text-slate-500">{app.instrument?.category?.replace(/_/g, ' ')}</p>
               </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Category:</span>
-                <span className="font-semibold text-slate-800">
-                  {app.instrument?.category?.replace(/_/g, ' ')}
-                </span>
+
+              <div className="space-y-0.5">
+                <span className="text-slate-400 font-bold uppercase text-[10px]">Manufacturer & Model</span>
+                <p className="font-semibold text-slate-800">{app.instrument?.manufacturer || 'N/A'}</p>
+                <p className="text-slate-500">Model: {app.instrument?.modelNumber || 'N/A'}</p>
               </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Model / Manufacturer:</span>
-                <span className="font-semibold text-slate-800">
-                  {app.instrument?.modelNumber} • {app.instrument?.manufacturer}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Serial Number:</span>
-                <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
-                  {app.instrument?.serialNumber}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Capacity / Range:</span>
-                <span className="font-semibold text-slate-800">
+
+              <div className="space-y-0.5">
+                <span className="text-slate-400 font-bold uppercase text-[10px]">Capacity & Accuracy</span>
+                <p className="font-semibold text-slate-800">
                   {formatInstrumentCapacity(app.instrument?.capacity, app.instrument?.unit, app.instrument?.maxCapacity)}
-                </span>
+                </p>
+                <p className="text-slate-500">
+                  Class: {app.instrument?.accuracyClass?.replace(/_/g, ' ') || 'Class III (Trade)'}
+                </p>
               </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Accuracy Class:</span>
-                <span className="font-semibold text-slate-800">
-                  {app.instrument?.accuracyClass || 'Class III'}
-                </span>
+
+              <div className="space-y-0.5">
+                <span className="text-slate-400 font-bold uppercase text-[10px]">Verification Scale Interval (e)</span>
+                <p className="font-semibold text-slate-800 font-mono">
+                  {app.instrument?.verificationScaleInterval_e || '1g'}
+                </p>
               </div>
+            </div>
+
+            {/* Installation Address */}
+            <div className="pt-3 border-t border-slate-100 text-xs">
+              <span className="text-slate-400 font-bold uppercase text-[10px] flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                <span>Physical Installation Location</span>
+              </span>
+              <p className="text-slate-800 font-medium mt-1">
+                {app.instrument?.installationAddress?.premiseName},{' '}
+                {app.instrument?.installationAddress?.addressLine || app.instrument?.installationAddress?.street},{' '}
+                {app.instrument?.installationAddress?.city}, {app.instrument?.installationAddress?.district},{' '}
+                {app.instrument?.installationAddress?.state} - {app.instrument?.installationAddress?.pincode}
+              </p>
+              {app.instrument?.installationAddress?.latitude && app.instrument?.installationAddress?.longitude && (
+                <p className="text-[11px] font-mono text-emerald-700 mt-0.5">
+                  GPS Coordinates: {app.instrument.installationAddress.latitude.toFixed(5)},{' '}
+                  {app.instrument.installationAddress.longitude.toFixed(5)}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Assigned Officer & Jurisdiction Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
-              <User className="w-4 h-4 text-teal-700" />
-              <span>Inspection Assignment & Location</span>
-            </div>
+          {/* Status Timeline */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
+              <Clock className="w-4 h-4 text-[#123B6D]" />
+              <span>Statutory Lifecycle & Scrutiny Timeline</span>
+            </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-slate-400 block mb-0.5">Assigned Legal Metrology Officer:</span>
-                {app.assignedLMO ? (
-                  <div className="font-bold text-slate-800">
-                    {app.assignedLMO.name}
-                    <span className="block text-[11px] font-normal text-slate-500">
-                      {app.assignedLMO.designation || 'LMO'} ({app.assignedLMO.email})
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-slate-500 italic">Pending officer allotment</span>
-                )}
-              </div>
-
-              <div>
-                <span className="text-slate-400 block mb-0.5">Verification Fee Status:</span>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`font-bold px-2 py-0.5 rounded text-[11px] ${
-                      app.feeDetails?.feeStatus === 'PAID'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {app.feeDetails?.feeStatus || 'PENDING'}
-                  </span>
-                  {app.feeDetails?.amount && (
-                    <span className="font-semibold text-slate-700">₹{app.feeDetails.amount}</span>
-                  )}
+            <div className="space-y-4 text-xs">
+              {/* Event 1: Submission */}
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">Application Submitted to Legal Metrology</p>
+                  <p className="text-slate-500 text-[11px]">
+                    Filed on {new Date(app.createdAt).toLocaleString()} via digital portal
+                  </p>
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <span className="text-slate-400 block mb-0.5">Verification Site Address:</span>
-                <div className="text-slate-700 flex items-start gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
-                  <span>
-                    {app.verificationLocation?.line1 || app.instrument?.installationAddress?.line1 || 'Registered Premise'},{' '}
-                    {app.verificationLocation?.district || app.instrument?.installationAddress?.district || 'District'},{' '}
-                    {app.verificationLocation?.state || app.instrument?.installationAddress?.state || 'State'} -{' '}
-                    {app.verificationLocation?.pincode || app.instrument?.installationAddress?.pincode}
-                  </span>
+              {/* Event 2: Scrutiny / Review */}
+              <div className="flex items-start gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5 ${
+                  currentStatus !== 'SUBMITTED' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 border border-slate-200'
+                }`}>
+                  {currentStatus !== 'SUBMITTED' ? <CheckCircle2 className="w-3.5 h-3.5" /> : '2'}
+                </div>
+                <div>
+                  <p className={`font-bold ${currentStatus !== 'SUBMITTED' ? 'text-slate-900' : 'text-slate-400'}`}>
+                    Document & Model Scrutiny
+                  </p>
+                  <p className="text-slate-500 text-[11px]">
+                    {currentStatus !== 'SUBMITTED' ? 'Verification officer scrutiny initiated' : 'Pending officer technical review'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Event 3: Inspection Scheduled */}
+              <div className="flex items-start gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5 ${
+                  scheduledDate || currentStatus === 'SCHEDULED' || currentStatus === 'INSPECTION_COMPLETED' || currentStatus === 'CERTIFICATE_ISSUED'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-100 text-slate-400 border border-slate-200'
+                }`}>
+                  {scheduledDate ? <CheckCircle2 className="w-3.5 h-3.5" /> : '3'}
+                </div>
+                <div>
+                  <p className={`font-bold ${scheduledDate ? 'text-slate-900' : 'text-slate-400'}`}>
+                    Field Inspection Allotment
+                  </p>
+                  <p className="text-slate-500 text-[11px]">
+                    {scheduledDate
+                      ? `Inspection appointment scheduled for ${new Date(scheduledDate).toLocaleDateString()}`
+                      : 'Slot pending officer schedule'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Event 4: Certificate Issued */}
+              <div className="flex items-start gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5 ${
+                  currentStatus === 'CERTIFICATE_ISSUED'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-100 text-slate-400 border border-slate-200'
+                }`}>
+                  {currentStatus === 'CERTIFICATE_ISSUED' ? <Award className="w-3.5 h-3.5" /> : '4'}
+                </div>
+                <div>
+                  <p className={`font-bold ${currentStatus === 'CERTIFICATE_ISSUED' ? 'text-emerald-700' : 'text-slate-400'}`}>
+                    Statutory Verification Certificate Issued
+                  </p>
+                  <p className="text-slate-500 text-[11px]">
+                    {currentStatus === 'CERTIFICATE_ISSUED'
+                      ? 'Digitally signed tamper-evident certificate generated'
+                      : 'Awaiting inspection verification stamp'}
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Attached Statutory Documents */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900">Attached Documents</h3>
+            {/* Attach Document Button */}
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
               <button
                 type="button"
                 onClick={() => setDocModalOpen(true)}
-                className="text-xs font-bold text-teal-800 hover:text-teal-900"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#123B6D] bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition"
               >
-                + Add File
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Additional Document</span>
               </button>
             </div>
-
-            {(!app.documents || app.documents.length === 0) ? (
-              <p className="text-xs text-slate-400 italic">No statutory documents attached yet.</p>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {app.documents.map((doc, idx) => (
-                  <div key={idx} className="py-2.5 flex items-center justify-between text-xs">
-                    <div>
-                      <p className="font-bold text-slate-800">{doc.name || 'Document'}</p>
-                      <p className="text-[11px] text-slate-500">{doc.documentType || 'Statutory File'}</p>
-                    </div>
-                    {doc.fileUrl && (
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg text-teal-800 hover:bg-teal-50"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
-        {/* 1 Col: Statutory Lifecycle Timeline */}
+        {/* Right Column (1 Col: Officer, Inspection Slot, Fee) */}
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
-              <Clock className="w-4 h-4 text-teal-700" />
-              <span>Statutory Lifecycle</span>
-            </div>
+          {/* Assigned Officer Card */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <User className="w-4 h-4 text-[#123B6D]" />
+              <span>Assigned Metrology Officer</span>
+            </h3>
 
-            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-              {/* If history events exist */}
-              {history && history.length > 0 ? (
-                history.map((event: any, idx: number) => (
-                  <div key={idx} className="relative">
-                    <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-teal-600 ring-4 ring-white" />
-                    <div className="text-xs font-bold text-slate-800">
-                      {event.status?.replace(/_/g, ' ') || event.toStatus?.replace(/_/g, ' ')}
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'N/A'}
-                    </div>
-                    {event.remarks && (
-                      <p className="text-[11px] text-slate-600 mt-1 bg-slate-50 p-2 rounded border border-slate-100">
-                        {event.remarks}
-                      </p>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="relative">
-                  <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-teal-600 ring-4 ring-white" />
-                  <div className="text-xs font-bold text-slate-800">
-                    {app.currentStatus || app.status}
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    {new Date(app.createdAt).toLocaleString()}
-                  </div>
+            {assignedOfficer ? (
+              <div className="space-y-2 text-xs">
+                <div className="p-3 bg-blue-50/60 rounded-lg border border-blue-200/60 space-y-1">
+                  <p className="font-bold text-slate-900 text-sm">{assignedOfficer.name}</p>
+                  <p className="text-slate-600">{assignedOfficer.designation || 'Inspector of Legal Metrology'}</p>
+                  <p className="text-slate-500 text-[11px] font-mono">{assignedOfficer.email}</p>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setHelplineModalOpen(true)}
+                  className="w-full py-2 px-3 text-xs font-bold text-center text-[#123B6D] bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center justify-center gap-1.5"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Contact Office</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-center space-y-1">
+                <Clock className="w-5 h-5 text-slate-400 mx-auto" />
+                <p className="font-semibold text-slate-700">Roster Allotment in Progress</p>
+                <p className="text-[11px]">An officer from your local district office will be assigned shortly.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Inspection Schedule Card */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-[#FF9933]" />
+              <span>Inspection Schedule</span>
+            </h3>
+
+            {scheduledDate ? (
+              <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-2 text-xs">
+                <div className="font-bold text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#FF9933]" />
+                  <span>
+                    {new Date(scheduledDate).toLocaleDateString('en-IN', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+                <p className="text-slate-600 text-[11px]">
+                  Physical inspection at registered premise. Keep purchase invoice and standard weights accessible.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-center space-y-1">
+                <Calendar className="w-5 h-5 text-slate-400 mx-auto" />
+                <p className="font-semibold text-slate-700">Awaiting Schedule</p>
+                <p className="text-[11px]">Field inspection slot will be posted after technical scrutiny.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Fee & Statutory Payment Card */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-emerald-600" />
+              <span>Statutory Fee Status</span>
+            </h3>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Verification Fee:</span>
+                <span className="font-bold text-slate-900 font-mono">
+                  {app.feeDetails?.amount ? `₹ ${app.feeDetails.amount}` : 'Statutory Scale Fee'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                <span className="text-slate-600">Payment Status:</span>
+                <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${
+                  app.feeDetails?.feeStatus === 'PAID'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {app.feeDetails?.feeStatus || 'PAID / EXEMPTED'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Review Application Modal */}
-      <Modal
-        isOpen={reviewModalOpen}
-        onClose={() => setReviewModalOpen(false)}
-        title="Conduct Technical Scrutiny"
-        subtitle={`Initiate departmental technical review for ${app.applicationNumber}`}
-        footer={
-          <div className="flex items-center justify-between w-full">
-            <button
-              type="button"
-              onClick={() => setReviewModalOpen(false)}
-              className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleReviewApplication}
-              disabled={reviewing}
-              className="px-4 py-1.5 text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 rounded-lg transition shadow-xs disabled:opacity-50"
-            >
-              {reviewing ? 'Marking Under Review...' : 'Confirm Technical Scrutiny'}
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-3 text-xs">
-          <p className="text-slate-600">
-            Placing this application under review formally marks that a Legal Metrology Officer is examining the statutory dossier, instrument specifications, and trade licensing.
-          </p>
-          <div>
-            <label className="block font-bold text-slate-800 mb-1">
-              Scrutiny Observations / Technical Remarks
-            </label>
-            <textarea
-              rows={3}
-              value={reviewRemarks}
-              onChange={(e) => setReviewRemarks(e.target.value)}
-              placeholder="e.g., Documents verified; accuracy class conforms to General Rules"
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+      {/* Document Upload Modal */}
+      {docModalOpen && (
+        <Modal
+          isOpen={docModalOpen}
+          onClose={() => setDocModalOpen(false)}
+          title="Attach Supporting Document"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-600">
+              Attach invoice, test report, or premise trade license to this verification file.
+            </p>
+            <FileUploader
+              accept=".pdf,image/*"
+              maxSizeMb={10}
+              onFileSelected={(f) => setSelectedFile(f)}
+              description="PDF or image up to 10MB"
             />
+            {selectedFile && (
+              <p className="font-semibold text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{selectedFile.name}</span>
+              </p>
+            )}
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDocModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedFile || uploading}
+                onClick={handleUploadDocument}
+                className="px-4 py-2 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0D2B4F] rounded-lg transition disabled:opacity-50"
+              >
+                {uploading ? 'Uploading...' : 'Confirm & Upload'}
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
 
-      {/* Approve Application Modal */}
-      <Modal
-        isOpen={approveModalOpen}
-        onClose={() => setApproveModalOpen(false)}
-        title="Grant Statutory Approval"
-        subtitle={`Approve application ${app.applicationNumber} for physical inspection scheduling`}
-        footer={
-          <div className="flex items-center justify-between w-full">
-            <button
-              type="button"
-              onClick={() => setApproveModalOpen(false)}
-              className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleApproveApplication}
-              disabled={approving}
-              className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition shadow-xs disabled:opacity-50"
-            >
-              {approving ? 'Approving...' : 'Confirm Statutory Approval'}
-            </button>
+      {/* Officer Helpline Modal */}
+      {helplineModalOpen && (
+        <Modal
+          isOpen={helplineModalOpen}
+          onClose={() => setHelplineModalOpen(false)}
+          title="Legal Metrology Enforcement Helpline"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 space-y-1">
+              <p className="font-bold text-[#123B6D] text-sm">National Consumer Helpline</p>
+              <p className="text-slate-600">Department of Consumer Affairs, Government of India</p>
+              <p className="font-bold text-slate-900 text-sm mt-2">
+                Toll Free: <a href="tel:1915" className="text-[#123B6D] underline">1915</a>
+              </p>
+            </div>
+
+            <div className="text-slate-600 leading-relaxed space-y-1">
+              <p className="font-bold text-slate-800">Jurisdictional Branch Support</p>
+              <p>For scheduling enquiries regarding application <strong>{app.applicationNumber}</strong>, quote your application reference number during business hours (10:00 AM - 05:00 PM).</p>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setHelplineModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0D2B4F] rounded-lg transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
-        }
-      >
-        <div className="space-y-3 text-xs">
-          <p className="text-slate-600">
-            Granting statutory approval satisfies all preliminary legal conditions. Once approved, the application will become eligible for immediate field verification beat scheduling.
-          </p>
-          <div>
-            <label className="block font-bold text-slate-800 mb-1">
-              Statutory Approval Endorsement / Remarks
-            </label>
-            <textarea
-              rows={3}
-              value={approveRemarks}
-              onChange={(e) => setApproveRemarks(e.target.value)}
-              placeholder="e.g., Application and statutory documents formally endorsed for verification"
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
-            />
-          </div>
-        </div>
-      </Modal>
-
-      {/* Attach Document Modal */}
-      <Modal
-        isOpen={docModalOpen}
-        onClose={() => setDocModalOpen(false)}
-        title="Attach Statutory Document"
-        subtitle="Upload calibration certificate, purchase invoice, or model approval"
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setDocModalOpen(false)}
-              className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleUploadDoc}
-              disabled={uploading || !selectedFile}
-              className="px-4 py-1.5 text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition shadow-xs disabled:opacity-50"
-            >
-              {uploading ? 'Uploading...' : 'Upload File'}
-            </button>
-          </>
-        }
-      >
-        <FileUploader
-          label="Select File"
-          selectedFile={selectedFile}
-          onFileSelect={setSelectedFile}
-        />
-      </Modal>
-
-      {/* Schedule Verification Modal */}
-      <ScheduleVerificationModal
-        isOpen={scheduleModalOpen}
-        onClose={() => setScheduleModalOpen(false)}
-        onSuccess={() => {
-          setToast({
-            id: String(Date.now()),
-            type: 'success',
-            title: 'Schedule Generated',
-            message: 'Statutory verification schedule successfully recorded.',
-          });
-          fetchDetails();
-        }}
-        application={app}
-        lockApplication={true}
-      />
+        </Modal>
+      )}
     </div>
   );
 };

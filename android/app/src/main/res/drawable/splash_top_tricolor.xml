@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Top Deep Government Navy Band -->
+    <item
+        android:top="0dp"
+        android:height="6dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#07366B" />
+        </shape>
+    </item>
+    <!-- Saffron Stripe -->
+    <item
+        android:top="6dp"
+        android:height="3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF9933" />
+        </shape>
+    </item>
+    <!-- White Stripe -->
+    <item
+        android:top="9dp"
+        android:height="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+        </shape>
+    </item>
+    <!-- India Green Stripe -->
+    <item
+        android:top="10dp"
+        android:height="3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#138808" />
+        </shape>
+    </item>
+</layer-list>

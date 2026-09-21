@@ -163,6 +163,8 @@ instrumentSchema.virtual('dueStatus').get(function () {
 // Compound indexes
 instrumentSchema.index({ manufacturer: 1, serialNumber: 1 });
 instrumentSchema.index({ stakeholder: 1, status: 1 });
+instrumentSchema.index({ stakeholder: 1, nextVerificationDueDate: 1 });
+instrumentSchema.index({ stakeholder: 1, createdAt: -1 });
 instrumentSchema.index({ 'installationAddress.district': 1, status: 1 });
 instrumentSchema.index({ nextVerificationDueDate: 1, status: 1 });
 instrumentSchema.index({ createdAt: -1 });

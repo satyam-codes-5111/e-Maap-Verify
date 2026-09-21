@@ -36,10 +36,15 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleMobileSidebar }) => {
     };
 
     fetchUnread();
-    const interval = setInterval(fetchUnread, 30000); // 30s poll
+    const handleFocus = () => {
+      fetchUnread();
+    };
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('notifications:refresh', handleFocus);
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('notifications:refresh', handleFocus);
     };
   }, []);
 

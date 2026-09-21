@@ -1,7 +1,7 @@
 /**
  * Reusable backend pagination helper
  */
-export function getPaginationParams(query = {}, defaultLimit = 10, maxLimit = 100) {
+export function getPaginationParams(query = {}, defaultLimit = 20, maxLimit = 100) {
   const rawPageVal = Array.isArray(query.page) ? query.page[query.page.length - 1] : query.page;
   const parsedPage = parseInt(rawPageVal, 10);
   const page = !isNaN(parsedPage) && parsedPage > 0 ? parsedPage : 1;

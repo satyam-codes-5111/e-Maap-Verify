@@ -21,6 +21,13 @@ router.get(
   stakeholderController.getMyStakeholderProfile
 );
 
+router.post(
+  '/me',
+  authorize(USER_ROLES.BUSINESS_USER),
+  validate(updateStakeholderSchema),
+  stakeholderController.updateStakeholderProfile
+);
+
 router.put(
   '/me',
   authorize(USER_ROLES.BUSINESS_USER),
@@ -41,6 +48,9 @@ router.post(
   upload.single('document'),
   stakeholderController.uploadKycDocument
 );
+
+// Reverse geocoding utility endpoint (accessible to authenticated users)
+router.get('/reverse-geocode', stakeholderController.reverseGeocodeLocation);
 
 // Administrative / Officer routes
 router.get(

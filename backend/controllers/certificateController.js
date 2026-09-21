@@ -68,10 +68,25 @@ export const getCertificates = asyncHandler(async (req, res) => {
   // Filter by status (support both 'status' and 'certificateStatus')
   if (req.query.status || req.query.certificateStatus) {
     const statusQuery = req.query.status || req.query.certificateStatus;
-    filter.$or = [
-      { certificateStatus: statusQuery },
-      { status: statusQuery },
-    ];
+    const now = new Date();
+    if (statusQuery === 'ACTIVE' || statusQuery === 'VALID') {
+      filter.$or = [
+        { certificateStatus: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } },
+        { status: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } },
+      ];
+      filter.validUntil = { $gte: now };
+    } else if (statusQuery === 'EXPIRED') {
+      filter.$or = [
+        { certificateStatus: CERTIFICATE_STATUSES.EXPIRED },
+        { status: CERTIFICATE_STATUSES.EXPIRED },
+        { validUntil: { $lt: now } },
+      ];
+    } else {
+      filter.$or = [
+        { certificateStatus: statusQuery },
+        { status: statusQuery },
+      ];
+    }
   }
 
   // Filter by search query (certificateNumber, qrToken)

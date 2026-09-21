@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Legal Metrology Brand Colors -->
+    <color name="colorPrimary">#123B6D</color>
+    <color name="colorPrimaryDark">#0D2B4F</color>
+    <color name="colorAccent">#FF9933</color>
+    <color name="colorNavy">#123B6D</color>
+    <color name="colorDarkNavy">#0D2B4F</color>
+    <color name="colorDeepNavy">#07366B</color>
+    <color name="colorSaffron">#FF9933</color>
+    <color name="colorWhite">#FFFFFF</color>
+    <color name="colorIndiaGreen">#138808</color>
+    <color name="colorLightBg">#FFFFFF</color>
+    <color name="colorSubtleBg">#F8FAFC</color>
+    <color name="colorBorder">#E2E8F0</color>
+    <color name="colorTextDark">#0D2B4F</color>
+    <color name="colorTextMuted">#64748B</color>
+    <color name="splash_background">#FFFFFF</color>
+</resources>

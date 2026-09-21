@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GovFooter } from '../../components/layout/GovFooter';
-import heroImage from './images/legal-metrology-hero.jpg';
+import heroImage from './images/legal-metrology-hero.webp';
 import {
   Scale,
   Search,

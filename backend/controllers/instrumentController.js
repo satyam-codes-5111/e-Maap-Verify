@@ -35,7 +35,22 @@ export const getInstruments = asyncHandler(async (req, res) => {
   }
 
   if (req.query.status) {
-    filter.status = req.query.status;
+    if (req.query.status === 'EXPIRED') {
+      const now = new Date();
+      filter.$or = [
+        { status: INSTRUMENT_STATUSES.EXPIRED },
+        { nextVerificationDueDate: { $lt: now } },
+      ];
+    } else if (req.query.status === 'EXPIRING_SOON') {
+      const now = new Date();
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      filter.$or = [
+        { status: INSTRUMENT_STATUSES.EXPIRED },
+        { nextVerificationDueDate: { $lte: in30Days } },
+      ];
+    } else {
+      filter.status = req.query.status;
+    }
   }
   if (req.query.category && req.query.category !== 'undefined') {
     let cat = req.query.category;
@@ -79,7 +94,8 @@ export const getInstruments = asyncHandler(async (req, res) => {
       .populate('stakeholder', 'businessName tradeLicenseNumber registeredAddress')
       .sort(sort)
       .skip(skip)
-      .limit(limit),
+      .limit(limit)
+      .lean(),
     Instrument.countDocuments(filter),
   ]);
 

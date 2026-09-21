@@ -54,6 +54,7 @@ export type UserItem = UserProfile;
 export interface Address {
   line1?: string;
   line2?: string;
+  street?: string;
   city?: string;
   district?: string;
   state?: string;
@@ -61,6 +62,8 @@ export interface Address {
   premiseName?: string;
   address?: string;
   addressLine?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface StakeholderItem {
@@ -78,9 +81,16 @@ export interface StakeholderItem {
   state?: string;
   contactPerson?: {
     name?: string;
+    designation?: string;
     phone?: string;
     email?: string;
   };
+  kycDocuments?: Array<{
+    docType?: string;
+    fileUrl?: string;
+    uploadedAt?: string;
+    verificationStatus?: string;
+  }>;
   createdAt: string;
   updatedAt?: string;
 }
@@ -109,6 +119,9 @@ export interface InstrumentItem {
   stakeholder?: string | StakeholderItem;
   installationAddress?: Address;
   approvalModelNumber?: string;
+  modelApprovalNumber?: string;
+  minimumCapacity_Min?: string;
+  remarks?: string;
   createdAt: string;
 }
 
@@ -140,6 +153,13 @@ export interface VerificationApplicationItem {
   priority?: 'NORMAL' | 'URGENT' | 'HIGH';
   instrument?: InstrumentItem;
   stakeholder?: StakeholderItem;
+  assignedOfficer?: {
+    _id?: string;
+    name?: string;
+    email?: string;
+    designation?: string;
+    phone?: string;
+  };
   assignedLMO?: {
     _id: string;
     name: string;
@@ -318,6 +338,12 @@ export interface CertificateItem {
     _id: string;
     name: string;
     designation?: string;
+  };
+  verifiedByOfficer?: {
+    _id?: string;
+    name?: string;
+    designation?: string;
+    phone?: string;
   };
   revocationReason?: string;
   revokedAt?: string;

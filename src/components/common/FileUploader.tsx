@@ -2,21 +2,23 @@ import React, { useState, useRef } from 'react';
 import { UploadCloud, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 interface FileUploaderProps {
-  label: string;
+  label?: string;
   description?: string;
   accept?: string;
   maxSizeMb?: number;
-  onFileSelect: (file: File | null) => void;
+  onFileSelect?: (file: File | null) => void;
+  onFileSelected?: (file: File | null) => void;
   selectedFile?: File | null;
   error?: string;
 }
 
 export const FileUploader: React.FC<FileUploaderProps> = ({
-  label,
+  label = 'Select Document',
   description = 'PDF, PNG or JPG up to 10MB',
   accept = '.pdf,.png,.jpg,.jpeg',
   maxSizeMb = 10,
   onFileSelect,
+  onFileSelected,
   selectedFile,
   error,
 }) => {
@@ -24,13 +26,17 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   const [localError, setLocalError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const handleSelect = onFileSelected || onFileSelect;
+
   const validateAndPass = (file: File) => {
     setLocalError(null);
     if (file.size > maxSizeMb * 1024 * 1024) {
       setLocalError(`File exceeds maximum size of ${maxSizeMb}MB`);
       return;
     }
-    onFileSelect(file);
+    if (handleSelect) {
+      handleSelect(file);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {

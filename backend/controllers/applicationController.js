@@ -430,7 +430,18 @@ export const getApplications = asyncHandler(async (req, res) => {
   // Status filtering (accepts applicationStatus or status)
   const statusFilter = req.query.applicationStatus || req.query.status;
   if (statusFilter) {
-    filter.currentStatus = statusFilter;
+    if (statusFilter === 'PENDING') {
+      filter.currentStatus = {
+        $in: [
+          APPLICATION_STATUSES.SUBMITTED,
+          APPLICATION_STATUSES.UNDER_REVIEW,
+          APPLICATION_STATUSES.SCHEDULED,
+          APPLICATION_STATUSES.INSPECTION,
+        ],
+      };
+    } else {
+      filter.currentStatus = statusFilter;
+    }
   }
   if (req.query.applicationType) {
     filter.applicationType = req.query.applicationType;
@@ -473,7 +484,8 @@ export const getApplications = asyncHandler(async (req, res) => {
       .populate('reviewedBy', 'name email role')
       .sort(sort)
       .skip(skip)
-      .limit(limit),
+      .limit(limit)
+      .lean(),
     VerificationApplication.countDocuments(filter),
   ]);
 
