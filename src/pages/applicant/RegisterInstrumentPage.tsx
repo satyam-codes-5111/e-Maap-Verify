@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { instrumentApi } from '../../services/instrumentApi';
@@ -35,6 +35,20 @@ export const RegisterInstrumentPage: React.FC = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<File | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  useEffect(() => {
+    if (!toast || toast.type !== 'error' || toast.title !== 'Registration Error') {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 10000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [toast]);
 
   const {
     register,

@@ -3278,7 +3278,20 @@ var getUsers = asyncHandler(async (req, res) => {
   const { page, limit, skip, sort } = getPaginationParams(req.query);
   const filter = {};
   if (req.query.role) {
-    filter.role = req.query.role;
+    const rawRole = String(req.query.role).trim();
+    if (rawRole === "OFFICER") {
+      filter.role = {
+        $in: [
+          USER_ROLES.LEGAL_METROLOGY_OFFICER,
+          USER_ROLES.FIELD_VERIFICATION_OFFICER
+        ]
+      };
+    } else if (rawRole.includes(",")) {
+      const roles = rawRole.split(",").map((r) => r.trim()).filter(Boolean);
+      filter.role = { $in: roles };
+    } else {
+      filter.role = rawRole;
+    }
   }
   if (req.query.district) {
     filter["jurisdiction.district"] = new RegExp(escapeRegex(req.query.district), "i");
@@ -6221,8 +6234,13 @@ async function transitionScheduleStatus(schedule, newStatus, user, { remarks, re
 
 // backend/controllers/scheduleController.js
 var scheduleApplication = asyncHandler(async (req, res) => {
+  if (req.user.role !== USER_ROLES.SUPER_ADMIN && req.user.role !== USER_ROLES.ADMIN && req.user.role !== USER_ROLES.LEGAL_METROLOGY_OFFICER) {
+    throw ApiError.forbidden("Only Administrators and Legal Metrology Officers are authorized to schedule verification.");
+  }
   const applicationId = req.body.applicationId || req.body.application;
-  const assignedOfficerId = req.body.assignedOfficer || req.body.assignedOfficerId || req.body.officerId;
+  const callerIsLmo = req.user.role === USER_ROLES.LEGAL_METROLOGY_OFFICER;
+  const rawAssignedOfficerId = req.body.assignedOfficer || req.body.assignedOfficerId || req.body.officerId;
+  const assignedOfficerId = rawAssignedOfficerId || (callerIsLmo ? String(req.user._id) : null);
   const assignedFieldOfficerId = req.body.assignedFieldOfficer || req.body.assignedFieldOfficerId || req.body.fieldOfficerId;
   const verificationCenterId = req.body.verificationCenterId || req.body.verificationCenter || req.body.centerId;
   const gatcId = req.body.gatcId || req.body.assignedGATC || req.body.gatc;
@@ -6322,7 +6340,7 @@ var scheduleApplication = asyncHandler(async (req, res) => {
     verificationCenterId: center?._id,
     applicationId: application._id
   });
-  const resolvedAddress = locationAddress || application.verificationLocation?.address || center?.address?.street || "Registered Business Premises";
+  const resolvedAddress = typeof locationAddress === "string" && locationAddress.trim().length > 0 ? locationAddress.trim() : typeof application.verificationLocation?.address === "string" && application.verificationLocation.address.trim().length > 0 ? application.verificationLocation.address.trim() : typeof application.verificationLocation === "string" && application.verificationLocation.trim().length > 0 ? application.verificationLocation.trim() : application.verificationLocation?.district ? `Premises at ${application.verificationLocation.district}, ${application.verificationLocation.state || "India"}` : center?.address?.street || "Registered Business Premises";
   const schedule = new VerificationSchedule({
     application: application._id,
     instrument: application.instrument,
@@ -6689,11 +6707,42 @@ var getMySchedules = asyncHandler(async (req, res) => {
       { assignedFieldOfficer: req.user._id },
       { assignedOfficer: req.user._id }
     ];
+  } else if (req.user.role === USER_ROLES.SUPER_ADMIN || req.user.role === USER_ROLES.ADMIN) {
+    if (req.query.assignedToMe === "true") {
+      filter.assignedOfficer = req.user._id;
+    } else if (req.query.officerId && import_mongoose20.default.Types.ObjectId.isValid(req.query.officerId)) {
+      filter.assignedOfficer = req.query.officerId;
+    }
+  } else if (req.user.role === USER_ROLES.GATC_OFFICER) {
+    filter.$or = [
+      { assignedOfficer: req.user._id },
+      { assignedGATC: req.user._id }
+    ];
+  } else if (req.user.role === USER_ROLES.LEGAL_METROLOGY_OFFICER) {
+    filter.$or = [
+      { assignedOfficer: req.user._id },
+      { assignedFieldOfficer: req.user._id }
+    ];
   } else {
     filter.assignedOfficer = req.user._id;
   }
-  const schedules = await VerificationSchedule.find(filter).populate("application", "applicationNumber currentStatus").populate("instrument", "instrumentId category serialNumber").populate("stakeholder", "businessName tradeLicenseNumber").populate("verificationCenter", "name code").sort({ scheduledDate: 1 });
-  return ApiResponse.success(res, schedules, "User schedules retrieved successfully");
+  if (req.query.status && req.query.status !== "ALL") {
+    filter.status = req.query.status;
+  }
+  const startDate = req.query.startDate || req.query.fromDate || req.query.start;
+  const endDate = req.query.endDate || req.query.toDate || req.query.end;
+  if (startDate && endDate) {
+    filter.scheduledDate = {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    };
+  } else if (startDate) {
+    filter.scheduledDate = { $gte: new Date(startDate) };
+  } else if (endDate) {
+    filter.scheduledDate = { $lte: new Date(endDate) };
+  }
+  const schedules = await VerificationSchedule.find(filter).populate("application", "applicationNumber currentStatus verificationLocation applicationType").populate("instrument", "instrumentId category serialNumber manufacturer").populate("stakeholder", "businessName tradeLicenseNumber legalName email phone").populate("assignedOfficer", "name email phone designation").populate("assignedFieldOfficer", "name email phone designation").populate("verificationCenter", "name code address").sort({ scheduledDate: 1 });
+  return ApiResponse.success(res, schedules || [], "User schedules retrieved successfully");
 });
 var getCalendarSchedules = asyncHandler(async (req, res) => {
   const filter = {};

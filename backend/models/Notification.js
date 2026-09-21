@@ -31,6 +31,20 @@ const notificationSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    instrument: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Instrument',
+      index: true,
+    },
+    application: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'VerificationApplication',
+      index: true,
+    },
+    dueDate: {
+      type: Date,
+      index: true,
+    },
     relatedEntityType: {
       type: String,
       trim: true,
@@ -75,5 +89,8 @@ const notificationSchema = new mongoose.Schema(
 notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
 notificationSchema.index({ recipient: 1, priority: 1, createdAt: -1 });
 notificationSchema.index({ relatedEntityType: 1, relatedEntityId: 1, type: 1 });
+notificationSchema.index({ recipient: 1, instrument: 1, type: 1, dueDate: 1 });
+notificationSchema.index({ instrument: 1, type: 1 });
+notificationSchema.index({ instrument: 1, isRead: 1 });
 
 export const Notification = mongoose.model('Notification', notificationSchema);

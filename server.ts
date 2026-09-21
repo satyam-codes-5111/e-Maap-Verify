@@ -39,6 +39,8 @@ async function startServer() {
         try {
           const { seedAdminUser } = await import('./backend/services/adminSeedService.js');
           await seedAdminUser();
+          const { startExpiryScheduler } = await import('./backend/jobs/expiryScheduler.js');
+          startExpiryScheduler();
         } catch (seedErr: any) {
           console.error('[ADMIN SEED WARNING]', seedErr?.message);
         }

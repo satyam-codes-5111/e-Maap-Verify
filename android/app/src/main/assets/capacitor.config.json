@@ -12,10 +12,11 @@
 			"launchFadeOutDuration": 300,
 			"backgroundColor": "#ffffff",
 			"androidSplashResourceName": "splash",
-			"androidScaleType": "CENTER_INSIDE",
+			"androidScaleType": "CENTER_CROP",
 			"showSpinner": false,
-			"splashFullScreen": false,
-			"splashImmersive": false
+			"splashFullScreen": true,
+			"splashImmersive": true,
+			"layoutName": "splash_screen"
 		}
 	}
 }

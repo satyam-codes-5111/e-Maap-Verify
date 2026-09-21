@@ -5,6 +5,7 @@ import { VerificationApplication } from '../models/VerificationApplication.js';
 import { Instrument } from '../models/Instrument.js';
 import { Stakeholder } from '../models/Stakeholder.js';
 import { User } from '../models/User.js';
+import { Notification } from '../models/Notification.js';
 import { ApiError } from '../utils/ApiError.js';
 import { generateVerificationQR } from './qrService.js';
 import { generateCertificatePDF } from './pdfService.js';
@@ -210,6 +211,33 @@ export async function generateCertificateForInspection({ inspectionId, user }) {
         status: INSTRUMENT_STATUSES.ACTIVE_VERIFIED,
         lastVerificationDate: validFrom,
         nextVerificationDueDate: validUntil,
+      },
+      session ? { session } : undefined
+    );
+
+    // 15b. Prevent old expiry notifications from continuing unnecessarily
+    await Notification.updateMany(
+      {
+        instrument: instrument._id,
+        type: {
+          $in: [
+            NOTIFICATION_TYPES.VERIFICATION_REMINDER,
+            NOTIFICATION_TYPES.VERIFICATION_WARNING,
+            NOTIFICATION_TYPES.VERIFICATION_URGENT,
+            NOTIFICATION_TYPES.VERIFICATION_EXPIRED,
+            NOTIFICATION_TYPES.VERIFICATION_DUE,
+            NOTIFICATION_TYPES.VERIFICATION_OVERDUE,
+          ],
+        },
+        isRead: false,
+      },
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date(),
+          'metadata.supersededByReverification': true,
+          'metadata.newCertificateNumber': certificateNumber,
+        },
       },
       session ? { session } : undefined
     );

@@ -65,6 +65,9 @@ export async function updateNotificationPreferences(userId, updates = {}) {
  * Resolves standard statutory priority based on notification type
  */
 function resolveDefaultPriority(type) {
+  if (type === NOTIFICATION_TYPES.VERIFICATION_EXPIRED) {
+    return NOTIFICATION_PRIORITIES.CRITICAL;
+  }
   if (
     type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRED ||
     type === NOTIFICATION_TYPES.VERIFICATION_OVERDUE ||
@@ -73,6 +76,7 @@ function resolveDefaultPriority(type) {
     return NOTIFICATION_PRIORITIES.URGENT;
   }
   if (
+    type === NOTIFICATION_TYPES.VERIFICATION_URGENT ||
     type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_7 ||
     type === NOTIFICATION_TYPES.VERIFICATION_DUE ||
     type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_30 ||
@@ -81,6 +85,7 @@ function resolveDefaultPriority(type) {
     return NOTIFICATION_PRIORITIES.HIGH;
   }
   if (
+    type === NOTIFICATION_TYPES.VERIFICATION_WARNING ||
     type === NOTIFICATION_TYPES.CERTIFICATE_EXPIRING_60 ||
     type === NOTIFICATION_TYPES.CERTIFICATE_ISSUED ||
     type === NOTIFICATION_TYPES.CERTIFICATE_GENERATED ||
@@ -105,13 +110,16 @@ export async function createNotification({
   type = NOTIFICATION_TYPES.SYSTEM_NOTIFICATION,
   title,
   message,
+  instrument,
+  application,
+  dueDate,
   relatedEntityType,
   relatedEntityId,
   priority,
   link = '',
   metadata = {},
   expiresAt,
-  sendEmailAlert = true,
+  sendEmailAlert = false,
 }, session = null) {
   try {
     const targetUserId = recipient || recipientId;
@@ -178,6 +186,9 @@ export async function createNotification({
       type,
       title,
       message,
+      instrument: instrument || (relatedEntityType === 'Instrument' ? relatedEntityId : undefined),
+      application: application || (relatedEntityType === 'VerificationApplication' ? relatedEntityId : undefined),
+      dueDate: dueDate || metadata?.dueDate || undefined,
       relatedEntityType,
       relatedEntityId,
       priority: resolvedPriority,

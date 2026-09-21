@@ -19,8 +19,18 @@ import { AUDIT_ACTIONS, USER_ROLES } from '../config/constants.js';
 export const getMyNotifications = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPaginationParams(req.query);
 
-  // Strict ownership isolation - user only sees their own notifications
-  const filter = { recipient: req.user._id };
+  const isAdmin = [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(req.user.role);
+  let filter;
+
+  if (isAdmin && (req.query.all === 'true' || req.query.scope === 'all')) {
+    filter = {};
+    if (req.query.recipient) {
+      filter.recipient = req.query.recipient;
+    }
+  } else {
+    // Strict ownership isolation - user only sees their own notifications
+    filter = { recipient: req.user._id };
+  }
 
   if (req.query.isRead !== undefined) {
     filter.isRead = req.query.isRead === 'true';
@@ -36,6 +46,10 @@ export const getMyNotifications = asyncHandler(async (req, res) => {
 
   if (req.query.relatedEntityType) {
     filter.relatedEntityType = req.query.relatedEntityType;
+  }
+
+  if (req.query.instrument) {
+    filter.$or = [{ instrument: req.query.instrument }, { relatedEntityId: req.query.instrument }];
   }
 
   if (req.query.search) {

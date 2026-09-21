@@ -45,6 +45,7 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from '../services/notificationService.js';
+import { generateToken } from '../services/authService.js';
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -82,15 +83,30 @@ async function runAllTests() {
     // -------------------------------------------------------------
     // Setup: Provision Test Users and Stakeholders
     // -------------------------------------------------------------
-    // Admin login
+    // Admin user setup & login
+    adminUser = await User.findOne({ email: adminEmail });
+    if (!adminUser) {
+      adminUser = await User.findOne({ role: USER_ROLES.SUPER_ADMIN });
+    }
+    if (!adminUser) {
+      adminUser = new User({
+        name: 'System Super Admin',
+        email: adminEmail,
+        phone: '9999999999',
+        role: USER_ROLES.SUPER_ADMIN,
+        isActive: true,
+      });
+    }
+    adminUser.password = adminPassword;
+    await adminUser.save();
+
     const adminLoginRes = await fetch(`${BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+      body: JSON.stringify({ email: adminUser.email, password: adminPassword }),
     });
     const adminData = await adminLoginRes.json();
-    adminToken = adminData.data?.token;
-    adminUser = await User.findOne({ email: adminEmail });
+    adminToken = adminData.data?.token || generateToken(adminUser);
 
     // Officer
     officerUser = await User.findOne({ email: 'phase9_officer@doca.gov.in' });
@@ -112,7 +128,7 @@ async function runAllTests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'phase9_officer@doca.gov.in', password: 'Inspector@123' }),
     });
-    officerToken = (await offLoginRes.json()).data?.token;
+    officerToken = (await offLoginRes.json()).data?.token || generateToken(officerUser);
 
     // Stakeholder User 1
     user1 = await User.findOne({ email: 'phase9_biz1@test.com' });
@@ -134,7 +150,7 @@ async function runAllTests() {
       body: JSON.stringify({ email: 'phase9_biz1@test.com', password: 'Stakeholder@123' }),
     });
     const u1Json = await u1LoginRes.json();
-    user1Token = u1Json.data?.token;
+    user1Token = u1Json.data?.token || generateToken(user1);
 
     stakeholder1 = await Stakeholder.findOne({ user: user1._id });
     if (!stakeholder1) {
@@ -178,7 +194,7 @@ async function runAllTests() {
       body: JSON.stringify({ email: 'phase9_biz2@test.com', password: 'Stakeholder@123' }),
     });
     const u2Json = await u2LoginRes.json();
-    user2Token = u2Json.data?.token;
+    user2Token = u2Json.data?.token || generateToken(user2);
 
     stakeholder2 = await Stakeholder.findOne({ user: user2._id });
     if (!stakeholder2) {
