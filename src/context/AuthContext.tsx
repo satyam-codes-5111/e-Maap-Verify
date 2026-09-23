@@ -19,7 +19,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
       const saved = localStorage.getItem('lm_auth_user');
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      if (!parsed || !parsed.role || typeof parsed.role !== 'string') {
+        localStorage.removeItem('lm_auth_user');
+        return null;
+      }
+      return parsed;
     } catch {
       localStorage.removeItem('lm_auth_user');
       return null;
@@ -41,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'BUSINESS_USER':
         return '/applicant/dashboard';
       default:
-        return '/applicant/dashboard';
+        return '/login';
     }
   }, [user?.role]);
 
@@ -54,23 +60,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const res = await authApi.getMe();
-      if (res.success && res.data) {
-        const u = res.data;
+      const rawData = res.data as any;
+      const u = rawData?.user || rawData;
+      if (res.success && u && u.role) {
         const normalizedUser: AuthUser = {
-          id: (u as any)._id || u.id,
-          name: u.name,
-          email: u.email,
+          id: u._id || u.id,
+          name: u.name || '',
+          email: u.email || '',
           role: u.role,
           phone: u.phone,
           designation: u.designation,
           jurisdiction: u.jurisdiction,
-          stakeholderId: (u as any).stakeholderId,
+          stakeholderId: u.stakeholderId || rawData?.stakeholder?._id,
           token: currentToken,
         };
         setUser(normalizedUser);
         localStorage.setItem('lm_auth_user', JSON.stringify(normalizedUser));
       } else {
-        throw new Error('User session invalid');
+        throw new Error('User session invalid or role missing');
       }
     } catch {
       setUser(null);

@@ -376,6 +376,7 @@ export async function getPublicCertificateVerification(token) {
       { certificateNumber: token },
     ],
   })
+    .populate('application', 'applicationNumber')
     .populate('stakeholder', 'businessName tradeLicenseNumber registeredAddress')
     .populate(
       'instrument',
@@ -396,6 +397,27 @@ export async function getPublicCertificateVerification(token) {
   const officer = certificate.issuedBy || certificate.issuedByOfficer;
   const revocationReason = certificate.revocationReason || certificate.revocationDetails?.reason || null;
 
+  // Recompute canonical SHA-256 tamper-evident digest dynamically using issuance parameters
+  const app = certificate.application;
+  const inst = certificate.instrument;
+  const stk = certificate.stakeholder;
+  const officerId = officer?._id || certificate.issuedBy || certificate.issuedByOfficer;
+
+  const normCertNo = String(certificate.certificateNumber || '').trim();
+  const normAppNo = String(app?.applicationNumber || app?._id || certificate.application || '').trim();
+  const normInstId = String(inst?.instrumentId || inst?.serialNumber || certificate.instrument?._id || certificate.instrument || '').trim();
+  const normTradeLicense = String(stk?.tradeLicenseNumber || stk?._id || certificate.stakeholder?._id || certificate.stakeholder || '').trim();
+  const normValidFrom = certificate.validFrom ? new Date(certificate.validFrom).toISOString() : '';
+  const normValidUntil = certificate.validUntil ? new Date(certificate.validUntil).toISOString() : '';
+  const normOfficerId = String(officerId || '').trim();
+
+  const hashPayload = `${normCertNo}|${normAppNo}|${normInstId}|${normTradeLicense}|${normValidFrom}|${normValidUntil}|${normOfficerId}`;
+  const recalculatedHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
+  const storedHash = String(certificate.tamperEvidentHash || certificate.cryptographicHash || '').toLowerCase().trim();
+
+  const integrityVerified = storedHash.length > 0 && storedHash === recalculatedHash.toLowerCase();
+  const integrityStatus = integrityVerified ? 'VERIFIED_GENUINE' : 'DATA_ALTERED';
+
   return {
     _id: certificate._id,
     id: certificate._id,
@@ -413,7 +435,10 @@ export async function getPublicCertificateVerification(token) {
     validFrom: certificate.validFrom,
     validUntil: certificate.validUntil,
     issuingAuthority: certificate.issuingAuthority,
-    tamperEvidentHash: certificate.tamperEvidentHash,
+    tamperEvidentHash: certificate.tamperEvidentHash || recalculatedHash,
+    recalculatedHash,
+    integrityVerified,
+    integrityStatus,
     verificationUrl: certificate.qrUrl,
     stakeholder: {
       businessName: certificate.stakeholder?.businessName,

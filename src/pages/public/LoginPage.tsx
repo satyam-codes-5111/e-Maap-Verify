@@ -22,12 +22,60 @@ import {
   UserCheck,
   Award,
   MapPin,
+  Building2,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface LoginFormInputs {
   email: string;
   password: string;
 }
+
+interface RoleCardOption {
+  id: UserRole;
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}
+
+const ROLE_CARDS: RoleCardOption[] = [
+  {
+    id: 'SUPER_ADMIN',
+    title: 'Super Admin',
+    subtitle: 'Central / Apex Admin',
+    icon: <ShieldCheck className="w-5 h-5 text-[#07549a]" />,
+  },
+  {
+    id: 'ADMIN',
+    title: 'Admin',
+    subtitle: 'State / District Admin',
+    icon: <Users className="w-5 h-5 text-[#07549a]" />,
+  },
+  {
+    id: 'LEGAL_METROLOGY_OFFICER',
+    title: 'Legal Metrology Officer',
+    subtitle: 'Verification & Sealing',
+    icon: <Scale className="w-5 h-5 text-[#07549a]" />,
+  },
+  {
+    id: 'FIELD_VERIFICATION_OFFICER',
+    title: 'Field Verification Officer',
+    subtitle: 'Physical Verification',
+    icon: <UserCheck className="w-5 h-5 text-[#07549a]" />,
+  },
+  {
+    id: 'GATC_OFFICER',
+    title: 'GATC Officer',
+    subtitle: 'Testing & Calibration',
+    icon: <Award className="w-5 h-5 text-[#07549a]" />,
+  },
+  {
+    id: 'BUSINESS_USER',
+    title: 'Business User',
+    subtitle: 'Applicant / Trader',
+    icon: <Building2 className="w-5 h-5 text-[#07549a]" />,
+  },
+];
 
 export const LoginPage: React.FC = () => {
   const { user, login, getRoleRedirectPath, loading } = useAuth();
@@ -42,9 +90,11 @@ export const LoginPage: React.FC = () => {
 
   // If already authenticated, redirect immediately to the user's role dashboard
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && user.role) {
       const destination = getRoleRedirectPath(user.role);
-      navigate(destination, { replace: true });
+      if (destination && destination !== '/login') {
+        navigate(destination, { replace: true });
+      }
     }
   }, [user, loading, getRoleRedirectPath, navigate]);
 
@@ -461,36 +511,73 @@ export const LoginPage: React.FC = () => {
                     </Link>
                   </div>
 
-                  {/* ROLE */}
+                  {/* ROLE CARDS & SELECTION */}
                   <div>
-                    <label className="flex items-center gap-2 text-sm font-bold text-[#17375e] mb-2">
-                      <Users className="w-5 h-5" />
-                      Select Role
-                    </label>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <label className="flex items-center gap-2 text-sm font-bold text-[#17375e]">
+                        <Users className="w-4 h-4 text-[#07549a]" />
+                        Select Portal Role
+                      </label>
+                      {selectedRole && (
+                        <span className="text-xs font-semibold text-[#07549a] bg-[#07549a]/10 px-2 py-0.5 rounded border border-[#07549a]/20">
+                          Active: {ROLE_CARDS.find((r) => r.id === selectedRole)?.title || selectedRole}
+                        </span>
+                      )}
+                    </div>
 
-                    <select
-                      value={selectedRole}
-                      onChange={(e) =>
-                        handleRoleChange(e.target.value as UserRole | '')
-                      }
-                      className="w-full h-12 px-4 border border-slate-300 rounded-lg bg-white text-sm sm:text-base text-slate-600 focus:outline-none focus:border-[#07549a] focus:ring-2 focus:ring-[#07549a]/15 cursor-pointer"
+                    {/* Active & Selectable Role Cards */}
+                    <div
+                      role="radiogroup"
+                      aria-label="Select Portal Role"
+                      className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
                     >
-                      <option value="">Select Role</option>
-                      <option value="SUPER_ADMIN">Super Admin</option>
-                      <option value="ADMIN">Admin</option>
-                      <option value="LEGAL_METROLOGY_OFFICER">
-                        Legal Metrology Officer
-                      </option>
-                      <option value="FIELD_VERIFICATION_OFFICER">
-                        Field Verification Officer
-                      </option>
-                      <option value="GATC_OFFICER">
-                        GATC Officer
-                      </option>
-                      <option value="BUSINESS_USER">
-                        Business User
-                      </option>
-                    </select>
+                      {ROLE_CARDS.map((card) => {
+                        const isSelected = selectedRole === card.id;
+                        return (
+                          <button
+                            key={card.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={isSelected}
+                            onClick={() => handleRoleChange(card.id)}
+                            onMouseEnter={() => prefetchDashboard(card.id)}
+                            onFocus={() => prefetchDashboard(card.id)}
+                            className={`p-3 rounded-lg border text-left transition relative flex flex-col justify-between min-h-[76px] cursor-pointer outline-none focus:ring-2 focus:ring-[#07549a]/40 ${
+                              isSelected
+                                ? 'border-[#07549a] bg-[#07549a]/10 ring-2 ring-[#07549a]/30 shadow-sm text-[#07549a]'
+                                : 'border-slate-200 bg-white hover:border-[#07549a]/50 hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full mb-1">
+                              <div
+                                className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
+                                  isSelected ? 'bg-[#07549a] text-white' : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {React.cloneElement(card.icon as React.ReactElement<{ className?: string }>, {
+                                  className: `w-4 h-4 ${isSelected ? 'text-white' : 'text-[#07549a]'}`,
+                                })}
+                              </div>
+                              {isSelected && (
+                                <CheckCircle2 className="w-4 h-4 text-[#07549a] shrink-0" />
+                              )}
+                            </div>
+                            <div>
+                              <div
+                                className={`text-xs font-bold leading-tight ${
+                                  isSelected ? 'text-[#07549a]' : 'text-[#102a4c]'
+                                }`}
+                              >
+                                {card.title}
+                              </div>
+                              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                                {card.subtitle}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* LOGIN */}

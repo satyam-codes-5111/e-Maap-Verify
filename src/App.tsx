@@ -138,17 +138,22 @@ const DashboardRedirect: React.FC = () => {
       </div>
     );
   }
-  if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to={getRoleRedirectPath(user.role)} replace />;
+  if (!user || !user.role) return <Navigate to="/login" replace />;
+  const targetPath = getRoleRedirectPath(user.role);
+  if (!targetPath || targetPath === '/dashboard' || targetPath === '/login') {
+    return <Navigate to="/login" replace />;
+  }
+  return <Navigate to={targetPath} replace />;
 };
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ScrollToTop />
-      <AuthProvider>
-        <ErrorBoundary>
-          <React.Suspense fallback={<PageLoadingFallback />}>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ScrollToTop />
+        <AuthProvider>
+          <ErrorBoundary>
+            <React.Suspense fallback={<PageLoadingFallback />}>
             <Routes>
               {/* Public Portal Routes */}
               <Route path="/" element={<LoginPage />} />
@@ -258,5 +263,6 @@ export default function App() {
       </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
+  </ErrorBoundary>
   );
 }

@@ -188,6 +188,19 @@ router.post(
 // Inspection history / audit trail
 router.get('/:id/history', inspectionController.getInspectionHistory);
 
+// Verification readiness evaluation (Officer / Admin only)
+router.get(
+  '/:id/readiness',
+  authorize(
+    USER_ROLES.SUPER_ADMIN,
+    USER_ROLES.ADMIN,
+    USER_ROLES.LEGAL_METROLOGY_OFFICER,
+    USER_ROLES.FIELD_VERIFICATION_OFFICER,
+    USER_ROLES.GATC_OFFICER
+  ),
+  inspectionController.getInspectionReadiness
+);
+
 // Single inspection detail
 router.get('/:id', inspectionController.getInspection);
 

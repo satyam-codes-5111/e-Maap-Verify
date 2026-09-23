@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import { LoadingSkeleton } from '../common/LoadingSkeleton';
@@ -11,6 +11,7 @@ interface RoleRouteProps {
 
 export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) => {
   const { user, loading, getRoleRedirectPath } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -22,13 +23,17 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) 
     );
   }
 
-  if (!user) {
+  if (!user || !user.role) {
     return <Navigate to="/login" replace />;
   }
 
   if (!allowedRoles.includes(user.role)) {
     // User does not have authorization for this specific role route
-    return <Navigate to={getRoleRedirectPath(user.role)} replace />;
+    const targetPath = getRoleRedirectPath(user.role);
+    if (!targetPath || targetPath === location.pathname || targetPath === '/login') {
+      return <Navigate to="/login" replace />;
+    }
+    return <Navigate to={targetPath} replace />;
   }
 
   return <>{children}</>;

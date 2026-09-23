@@ -72,15 +72,37 @@ export const inspectionApi = {
 
   finalizeInspection: async (
     id: string,
-    data: { statutoryVerdict?: string; verdict?: string; sealNumber?: string; validUntil?: string; remarks?: string }
+    data: { statutoryVerdict?: string; verdict?: string; sealNumber?: string; validUntil?: string; remarks?: string; reason?: string }
   ) => {
     const payload = {
+      verdict: data.verdict || data.statutoryVerdict || 'VERIFIED',
       statutoryVerdict: data.statutoryVerdict || data.verdict || 'VERIFIED',
       sealNumber: data.sealNumber,
       validUntil: data.validUntil,
       remarks: data.remarks,
+      reason: data.reason,
     };
-    const res = await api.post<ApiResponse<VerificationInspectionItem>>(`/inspections/${id}/finalize`, payload);
+    const res = await api.post<ApiResponse<any>>(`/inspections/${id}/finalize`, payload);
+    return res.data;
+  },
+
+  getInspectionReadiness: async (id: string) => {
+    const res = await api.get<ApiResponse<{
+      ready: boolean;
+      summary: {
+        passedCount: number;
+        totalCount: number;
+        allPassed: boolean;
+        missingCount: number;
+        missingChecks: string[];
+        status: string;
+      };
+      checks: Array<{
+        name: string;
+        passed: boolean;
+        message: string;
+      }>;
+    }>>(`/inspections/${id}/readiness`);
     return res.data;
   },
 

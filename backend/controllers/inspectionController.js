@@ -14,6 +14,7 @@ import {
 } from '../config/constants.js';
 import { logAuditEvent } from '../services/auditService.js';
 import * as inspectionService from '../services/inspectionService.js';
+import { evaluateVerificationReadiness } from '../services/verificationReadinessService.js';
 import { cleanupFile, validateUploadedFile } from '../utils/fileSecurity.js';
 
 /**
@@ -145,6 +146,26 @@ export const uploadEvidence = asyncHandler(async (req, res) => {
     inspection: inspectionDoc,
   };
   return ApiResponse.created(res, responseData, 'Inspection evidence uploaded successfully.');
+});
+
+/**
+ * Controller: Get Inspection Verification Readiness Evaluation
+ * GET /api/inspections/:id/readiness
+ * Deterministic statutory rule engine evaluation
+ */
+export const getInspectionReadiness = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw ApiError.badRequest('Invalid inspection ID format');
+  }
+
+  // Security: Check officer assignment & jurisdiction using existing retrieval pattern
+  await inspectionService.getInspectionById(id, req.user);
+
+  // Evaluate deterministic statutory rules
+  const readiness = await evaluateVerificationReadiness(id, { requestingUser: req.user });
+
+  return ApiResponse.success(res, readiness, 'Inspection verification readiness evaluated successfully.');
 });
 
 /**

@@ -23,7 +23,7 @@ import {
 } from '../config/constants.js';
 import { logAuditEvent } from './auditService.js';
 import { createNotification } from './notificationService.js';
-import { issueVerificationCertificate } from './certificateService.js';
+import { issueVerificationCertificate, generateCertificateForInspection } from './certificateService.js';
 import { validateUploadedFile, processBase64Upload } from '../utils/fileSecurity.js';
 import { runInTransaction } from '../utils/transactionHelper.js';
 
@@ -1218,6 +1218,25 @@ export async function finalizeInspection(inspectionId, payload, user) {
       },
     }, session);
   });
+
+  // Post-commit: Generate or retrieve digital certificate for VERIFIED inspections
+  if (isPassed) {
+    try {
+      const existingCert = await Certificate.findOne({
+        $or: [{ inspection: inspection._id }, { application: application._id }],
+      });
+      if (existingCert) {
+        generatedCertificate = existingCert;
+      } else {
+        generatedCertificate = await generateCertificateForInspection({
+          inspectionId: inspection._id,
+          user,
+        });
+      }
+    } catch (certErr) {
+      console.error('[FINALIZE INSPECTION] Certificate auto-generation note:', certErr.message);
+    }
+  }
 
   // Post-commit notifications
   if (inspection.stakeholder?.user) {

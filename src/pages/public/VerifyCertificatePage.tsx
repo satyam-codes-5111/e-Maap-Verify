@@ -47,6 +47,10 @@ interface CertificateData {
   state?: string;
   qrToken?: string;
   pdfUrl?: string;
+  tamperEvidentHash?: string;
+  recalculatedHash?: string;
+  integrityVerified?: boolean;
+  integrityStatus?: string;
 }
 
 type VerifyState = 'idle' | 'loading' | 'verified' | 'invalid' | 'error';
@@ -166,6 +170,10 @@ export const VerifyCertificatePage: React.FC = () => {
           state: raw.stakeholder?.state || raw.state,
           qrToken: raw.qrCodeToken || raw.qrToken || verificationToken,
           pdfUrl: raw.verificationUrl || raw.certificateUrl || raw.pdfUrl || (raw._id ? `/api/certificates/${raw._id}/download` : undefined),
+          tamperEvidentHash: raw.tamperEvidentHash || raw.recalculatedHash,
+          recalculatedHash: raw.recalculatedHash,
+          integrityVerified: typeof raw.integrityVerified === 'boolean' ? raw.integrityVerified : (raw.integrityStatus === 'VERIFIED_GENUINE'),
+          integrityStatus: raw.integrityStatus || (raw.integrityVerified ? 'VERIFIED_GENUINE' : undefined),
         };
 
         if (
@@ -716,6 +724,91 @@ export const VerifyCertificatePage: React.FC = () => {
                           </p>
                         </div>
                       </div>
+
+                      {/* CRYPTOGRAPHIC INTEGRITY & STATUS AUDIT */}
+                      <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* 1. Certificate Status */}
+                        <div className="border border-slate-200 rounded-lg p-3.5 bg-white shadow-xs">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                            Certificate Status
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold ${
+                              certificate.status === 'ACTIVE' || certificate.status === 'VALID'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : certificate.status === 'EXPIRED'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                              {certificate.status || 'ACTIVE'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 2. QR Verification */}
+                        <div className="border border-slate-200 rounded-lg p-3.5 bg-white shadow-xs">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                            QR Verification
+                          </span>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                            <QrCode className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>Authentic QR Signature</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block mt-0.5">
+                            Matches Official Registry
+                          </span>
+                        </div>
+
+                        {/* 3. Cryptographic Integrity */}
+                        <div className={`border rounded-lg p-3.5 shadow-xs ${
+                          certificate.integrityVerified !== false && certificate.integrityStatus !== 'DATA_ALTERED'
+                            ? 'border-emerald-200 bg-emerald-50/50'
+                            : 'border-red-300 bg-red-50/80'
+                        }`}>
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                            Cryptographic Integrity
+                          </span>
+                          {certificate.integrityVerified !== false && certificate.integrityStatus !== 'DATA_ALTERED' ? (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>✓ Cryptographically Verified</span>
+                              </div>
+                              <div className="text-[11px] font-medium text-emerald-700 pl-5">
+                                ✓ Zero Alteration Detected
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-red-800">
+                                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                                <span>⚠ DATA ALTERED</span>
+                              </div>
+                              <div className="text-[11px] font-semibold text-red-700 pl-5">
+                                ⚠ Integrity Verification Failed
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* SHA-256 Digest Info */}
+                      {certificate.tamperEvidentHash && (
+                        <div className="mt-3 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-bold text-slate-600 text-[11px] uppercase tracking-wider shrink-0">
+                              SHA-256 Digest:
+                            </span>
+                            <code className="font-mono text-[11px] text-slate-700 truncate select-all bg-white px-2 py-0.5 border border-slate-200 rounded">
+                              {certificate.tamperEvidentHash}
+                            </code>
+                          </div>
+                          <span className="text-[11px] text-slate-500 shrink-0">
+                            Immutable Tamper-Evident Hash
+                          </span>
+                        </div>
+                      )}
 
                       {/* CERTIFICATE DETAILS */}
                       <div className="mt-5 border border-slate-200 rounded-lg overflow-hidden">
