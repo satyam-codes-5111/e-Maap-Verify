@@ -439,3 +439,61 @@ export interface AuditLog {
   performedBy?: any;
 }
 
+export interface MpeGuidelineTier {
+  range: string;
+  tolerance: string;
+  description: string;
+}
+
+export interface MpeGuidelines {
+  standard: string;
+  accuracyClass: string;
+  capacitySpec?: string;
+  note: string;
+  tiers: MpeGuidelineTier[];
+}
+
+export interface InstrumentScanLookupResult {
+  found: boolean;
+  query: string;
+  cleanedQuery?: string;
+  matchedBy?: 'INSTRUMENT_ID' | 'SERIAL_NUMBER' | 'CERTIFICATE_TOKEN' | 'APPLICATION_NUMBER' | 'OBJECT_ID';
+  dueStatus?: 'UP_TO_DATE' | 'DUE_SOON' | 'OVERDUE' | string;
+  message?: string;
+  suggestedNextSteps?: string[];
+  instrument?: InstrumentItem;
+  stakeholder?: Partial<StakeholderItem>;
+  activeCertificate?: {
+    _id: string;
+    id?: string;
+    certificateNumber: string;
+    status: string;
+    validFrom?: string;
+    validUntil?: string;
+    verificationDate?: string;
+    tamperEvidentHash?: string;
+    pdfUrl?: string;
+    qrToken?: string;
+    qrUrl?: string;
+    issuedByOfficer?: string;
+  };
+  recentInspections?: Array<{
+    _id: string;
+    inspectionNumber: string;
+    status: string;
+    result?: string;
+    inspectionDate: string;
+    inspector?: string;
+    remarks?: string;
+  }>;
+  activeSchedule?: {
+    _id: string;
+    scheduleNumber?: string;
+    scheduledDate: string;
+    timeSlot: string;
+    status: string;
+  };
+  mpeGuidelines?: MpeGuidelines;
+}
+
+

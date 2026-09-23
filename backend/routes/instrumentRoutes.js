@@ -39,6 +39,17 @@ router.post(
   instrumentController.createInstrument
 );
 
+// Instant QR & Barcode scan lookup for Field Officers and Verification Inspections
+router.get(
+  '/scan/lookup',
+  instrumentController.lookupInstrumentByScan
+);
+
+router.get(
+  '/scan/:code',
+  instrumentController.lookupInstrumentByScan
+);
+
 // Get single instrument by ID
 router.get(
   '/:id',

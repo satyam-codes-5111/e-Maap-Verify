@@ -68,6 +68,30 @@ router.get(
 // General list endpoint with role filtering in service
 router.get('/', inspectionController.listInspections);
 
+// Auto-populate checklist preview from scanned instrument QR code / ID
+router.post(
+  '/auto-populate-checklist',
+  authorize(
+    USER_ROLES.SUPER_ADMIN,
+    USER_ROLES.ADMIN,
+    USER_ROLES.LEGAL_METROLOGY_OFFICER,
+    USER_ROLES.FIELD_VERIFICATION_OFFICER
+  ),
+  inspectionController.autoPopulateInspectionChecklist
+);
+
+// Auto-populate existing inspection draft from scanned instrument QR code
+router.post(
+  '/:id/populate-from-scan',
+  authorize(
+    USER_ROLES.SUPER_ADMIN,
+    USER_ROLES.ADMIN,
+    USER_ROLES.LEGAL_METROLOGY_OFFICER,
+    USER_ROLES.FIELD_VERIFICATION_OFFICER
+  ),
+  inspectionController.autoPopulateInspectionChecklist
+);
+
 // Start an inspection for a schedule
 router.post(
   '/:scheduleId/start',

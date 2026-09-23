@@ -23,6 +23,7 @@ export const OfficerInspectionsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const scheduleIdParam = searchParams.get('scheduleId');
+  const instrumentIdParam = searchParams.get('instrumentId');
 
   const [inspections, setInspections] = useState<InspectionItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +89,32 @@ export const OfficerInspectionsPage: React.FC = () => {
     };
     autoStartFromSchedule();
   }, [scheduleIdParam, navigate]);
+
+  // Handle direct navigation for scanned instrument
+  useEffect(() => {
+    if (!instrumentIdParam || scheduleIdParam) return;
+    const findInspectionForInstrument = async () => {
+      try {
+        const listRes = await inspectionApi.getMyInspections({ limit: 50 });
+        const items = listRes?.data?.inspections || (Array.isArray(listRes?.data) ? listRes.data : []);
+        const matched = items.find(
+          (i: any) =>
+            String(i.instrument?._id || i.instrument?.instrumentId || i.instrument) === String(instrumentIdParam)
+        );
+        if (matched && matched._id) {
+          navigate(`/officer/inspections/${matched._id}/checklist`);
+        } else {
+          setToast({
+            id: String(Date.now()),
+            type: 'info',
+            title: 'Instrument Scanned',
+            message: `Showing field inspection records for instrument ${instrumentIdParam}.`,
+          });
+        }
+      } catch {}
+    };
+    findInspectionForInstrument();
+  }, [instrumentIdParam, scheduleIdParam, navigate]);
 
   const columns: Column<InspectionItem>[] = [
     {

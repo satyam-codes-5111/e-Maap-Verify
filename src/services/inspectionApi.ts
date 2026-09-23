@@ -51,6 +51,20 @@ export const inspectionApi = {
     return res.data;
   },
 
+  autoPopulateFromScan: async (inspectionId: string, scannedCode: string) => {
+    const res = await api.post<ApiResponse<any>>(`/inspections/${inspectionId}/populate-from-scan`, {
+      scannedCode,
+    });
+    return res.data;
+  },
+
+  previewChecklistFromScan: async (scannedCode: string) => {
+    const res = await api.post<ApiResponse<any>>('/inspections/auto-populate-checklist', {
+      scannedCode,
+    });
+    return res.data;
+  },
+
   submitInspection: async (id: string, data?: any) => {
     const res = await api.post<ApiResponse<VerificationInspectionItem>>(`/inspections/${id}/submit`, data);
     return res.data;

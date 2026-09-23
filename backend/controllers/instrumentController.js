@@ -3,6 +3,8 @@ import { Instrument } from '../models/Instrument.js';
 import { Stakeholder } from '../models/Stakeholder.js';
 import { VerificationApplication } from '../models/VerificationApplication.js';
 import { Certificate } from '../models/Certificate.js';
+import { VerificationInspection } from '../models/VerificationInspection.js';
+import { VerificationSchedule } from '../models/VerificationSchedule.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/response.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -203,13 +205,19 @@ export const createInstrument = asyncHandler(async (req, res) => {
 });
 
 export const getInstrumentById = asyncHandler(async (req, res) => {
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    throw ApiError.badRequest('Invalid instrument ID format');
+  let instrument = null;
+
+  if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+    instrument = await Instrument.findById(req.params.id)
+      .populate('stakeholder', 'businessName tradeLicenseNumber registeredAddress contactPerson kycStatus gstin')
+      .populate('createdBy', 'name email role');
   }
 
-  const instrument = await Instrument.findById(req.params.id)
-    .populate('stakeholder', 'businessName tradeLicenseNumber registeredAddress contactPerson kycStatus')
-    .populate('createdBy', 'name email role');
+  if (!instrument) {
+    instrument = await Instrument.findOne({ instrumentId: req.params.id })
+      .populate('stakeholder', 'businessName tradeLicenseNumber registeredAddress contactPerson kycStatus gstin')
+      .populate('createdBy', 'name email role');
+  }
 
   if (!instrument) {
     throw ApiError.notFound('Instrument not found');
@@ -224,6 +232,319 @@ export const getInstrumentById = asyncHandler(async (req, res) => {
   }
 
   return ApiResponse.success(res, instrument, 'Instrument retrieved successfully');
+});
+
+/**
+ * Calculates statutory Maximum Permissible Error (MPE) guideline tolerances
+ * per Legal Metrology (General) Rules, 2011 (Seventh Schedule)
+ */
+export function calculateMpeGuidelines(accuracyClass, capacity) {
+  const capVal = typeof capacity === 'object' ? capacity?.value : capacity;
+  const unit = (typeof capacity === 'object' ? capacity?.unit : 'kg') || 'kg';
+  const standard = 'Legal Metrology (General) Rules, 2011 & Seventh Schedule (NAWI)';
+  let tiers = [];
+  const note = 'Verification Maximum Permissible Errors (MPE) apply during initial verification and subsequent re-verification.';
+
+  const accUpper = String(accuracyClass || '').toUpperCase();
+
+  if (accUpper.includes('CLASS_I_SPECIAL') || accUpper === 'CLASS_I' || accUpper.includes('SPECIAL')) {
+    tiers = [
+      { range: '0 ≤ m ≤ 50,000 e', tolerance: '± 0.5 e', description: 'Fine sensitivity initial verification range' },
+      { range: '50,000 e < m ≤ 200,000 e', tolerance: '± 1.0 e', description: 'Mid-load verification tolerance' },
+      { range: 'm > 200,000 e', tolerance: '± 1.5 e', description: 'Upper capacity verification limit' },
+    ];
+  } else if (accUpper.includes('CLASS_II_HIGH') || accUpper === 'CLASS_II' || accUpper.includes('HIGH')) {
+    tiers = [
+      { range: '0 ≤ m ≤ 5,000 e', tolerance: '± 0.5 e', description: 'Low load tolerance band' },
+      { range: '5,000 e < m ≤ 20,000 e', tolerance: '± 1.0 e', description: 'Mid load standard tolerance' },
+      { range: 'm > 20,000 e', tolerance: '± 1.5 e', description: 'High load verification threshold' },
+    ];
+  } else if (accUpper.includes('CLASS_IIII_ORDINARY') || accUpper === 'CLASS_IIII' || accUpper.includes('ORDINARY')) {
+    tiers = [
+      { range: '0 ≤ m ≤ 50 e', tolerance: '± 0.5 e', description: 'Initial commercial tolerance' },
+      { range: '50 e < m ≤ 200 e', tolerance: '± 1.0 e', description: 'Working range verification' },
+      { range: '200 e < m ≤ 1,000 e', tolerance: '± 1.5 e', description: 'Full capacity threshold' },
+    ];
+  } else {
+    // Default to Class III (Medium Accuracy) - most common commercial scales
+    tiers = [
+      { range: '0 ≤ m ≤ 500 e', tolerance: '± 0.5 e', description: 'Initial commercial tolerance' },
+      { range: '500 e < m ≤ 2,000 e', tolerance: '± 1.0 e', description: 'General trading & retail tolerance' },
+      { range: '2,000 e < m ≤ 10,000 e', tolerance: '± 1.5 e', description: 'Bulk & high-capacity range' },
+    ];
+  }
+
+  return {
+    standard,
+    accuracyClass: accuracyClass || 'Class III (Medium Accuracy)',
+    capacitySpec: capVal ? `${capVal} ${unit}` : 'Standard Commercial',
+    note,
+    tiers,
+  };
+}
+
+/**
+ * Instant QR / Barcode / Token lookup for field officers
+ * GET /api/instruments/scan/lookup?q=...
+ */
+export const lookupInstrumentByScan = asyncHandler(async (req, res) => {
+  const rawQuery = (req.query.q || req.query.code || req.query.token || req.params.code || '').trim();
+
+  if (!rawQuery) {
+    throw ApiError.badRequest('Please provide a QR code, barcode, serial number, or instrument token to scan/lookup.');
+  }
+
+  // 1. Clean & Parse Query Token
+  let cleanQuery = rawQuery;
+
+  // Handle URL format: e.g. http://localhost:3000/api/public/certificates/verify/<token>
+  if (cleanQuery.startsWith('http://') || cleanQuery.startsWith('https://') || cleanQuery.includes('/verify/')) {
+    try {
+      const parsedUrl = new URL(cleanQuery, 'https://emaap.gov.in');
+      const paramToken =
+        parsedUrl.searchParams.get('token') ||
+        parsedUrl.searchParams.get('certificateNo') ||
+        parsedUrl.searchParams.get('instrumentId') ||
+        parsedUrl.searchParams.get('q');
+      if (paramToken) {
+        cleanQuery = paramToken.trim();
+      } else {
+        const segments = parsedUrl.pathname.split('/').filter(Boolean);
+        const vIndex = segments.indexOf('verify');
+        if (vIndex !== -1 && segments[vIndex + 1]) {
+          cleanQuery = segments[vIndex + 1].trim();
+        } else if (segments.length > 0) {
+          cleanQuery = segments[segments.length - 1].trim();
+        }
+      }
+    } catch {
+      // Ignore URL parse error
+    }
+  }
+
+  // Handle JSON format: e.g. {"instrumentId": "INS-2026-..."}
+  if (cleanQuery.startsWith('{') && cleanQuery.endsWith('}')) {
+    try {
+      const parsedJson = JSON.parse(cleanQuery);
+      cleanQuery =
+        parsedJson.instrumentId ||
+        parsedJson.serialNumber ||
+        parsedJson.certificateNumber ||
+        parsedJson.token ||
+        cleanQuery;
+    } catch {
+      // Ignore JSON parse error
+    }
+  }
+
+  cleanQuery = cleanQuery.trim();
+
+  let instrument = null;
+  let matchedBy = null;
+  let certificate = null;
+
+  // Attempt 1: Match by official instrumentId (e.g. INS-2026-XXXXXX)
+  instrument = await Instrument.findOne({
+    instrumentId: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i'),
+  })
+    .populate('stakeholder')
+    .populate('createdBy', 'name email role');
+
+  if (instrument) {
+    matchedBy = 'INSTRUMENT_ID';
+  }
+
+  // Attempt 2: Match by MongoDB ObjectId
+  if (!instrument && mongoose.Types.ObjectId.isValid(cleanQuery)) {
+    instrument = await Instrument.findById(cleanQuery)
+      .populate('stakeholder')
+      .populate('createdBy', 'name email role');
+    if (instrument) matchedBy = 'OBJECT_ID';
+  }
+
+  // Attempt 3: Match by Certificate (QR Token, Verification Token, Certificate Number)
+  if (!instrument) {
+    certificate = await Certificate.findOne({
+      $or: [
+        { qrToken: cleanQuery },
+        { qrVerificationToken: cleanQuery },
+        { qrCodeToken: cleanQuery },
+        { certificateNumber: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i') },
+      ],
+    })
+      .populate('instrument')
+      .populate('stakeholder')
+      .populate('issuedBy', 'name designation jurisdiction')
+      .populate('issuedByOfficer', 'name designation jurisdiction');
+
+    if (certificate && certificate.instrument) {
+      instrument = await Instrument.findById(certificate.instrument._id || certificate.instrument)
+        .populate('stakeholder')
+        .populate('createdBy', 'name email role');
+      if (instrument) matchedBy = 'CERTIFICATE_TOKEN';
+    }
+  }
+
+  // Attempt 4: Match by Serial Number (exact or case-insensitive)
+  if (!instrument) {
+    instrument = await Instrument.findOne({
+      serialNumber: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i'),
+    })
+      .populate('stakeholder')
+      .populate('createdBy', 'name email role');
+    if (instrument) matchedBy = 'SERIAL_NUMBER';
+  }
+
+  // Attempt 5: Match by Application Number
+  if (!instrument) {
+    const app = await VerificationApplication.findOne({
+      applicationNumber: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i'),
+    }).populate('instrument');
+    if (app && app.instrument) {
+      instrument = await Instrument.findById(app.instrument._id || app.instrument)
+        .populate('stakeholder')
+        .populate('createdBy', 'name email role');
+      if (instrument) matchedBy = 'APPLICATION_NUMBER';
+    }
+  }
+
+  // If still not found, return clean not-found response with actionable diagnostic help
+  if (!instrument) {
+    return ApiResponse.success(
+      res,
+      {
+        found: false,
+        query: rawQuery,
+        cleanedQuery: cleanQuery,
+        message: `No instrument or official certificate found matching '${cleanQuery}'.`,
+        suggestedNextSteps: [
+          'Verify the instrument serial number printed on the physical data plate.',
+          'Check that the QR sticker is clear, clean, and not damaged.',
+          'Confirm if the instrument has been registered in the Legal Metrology portal.',
+          'If this is an unregistered device, you can register or create a verification notice from the dashboard.',
+        ],
+      },
+      'Lookup complete - no instrument match found'
+    );
+  }
+
+  // If certificate was not loaded in step 3, fetch the latest certificate for this instrument
+  if (!certificate) {
+    certificate = await Certificate.findOne({
+      instrument: instrument._id,
+    })
+      .sort({ createdAt: -1 })
+      .populate('issuedBy', 'name designation jurisdiction')
+      .populate('issuedByOfficer', 'name designation jurisdiction');
+  }
+
+  // Fetch recent inspections for this instrument
+  const recentInspections = await VerificationInspection.find({
+    instrument: instrument._id,
+  })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate('inspector', 'name designation')
+    .lean();
+
+  // Fetch any active/upcoming schedule
+  const activeSchedule = await VerificationSchedule.findOne({
+    $or: [
+      { instrument: instrument._id },
+      { 'application.instrument': instrument._id },
+    ],
+    status: { $in: ['SCHEDULED', 'IN_PROGRESS', 'CONFIRMED'] },
+  })
+    .sort({ scheduledDate: -1 })
+    .populate('officer', 'name designation');
+
+  // Compute MPE (Maximum Permissible Error) guideline table
+  const mpeGuidelines = calculateMpeGuidelines(instrument.accuracyClass, instrument.capacity);
+
+  // Dynamic due status
+  const dueStatus = instrument.getDueStatus ? instrument.getDueStatus() : 'UP_TO_DATE';
+
+  const result = {
+    found: true,
+    query: rawQuery,
+    cleanedQuery: cleanQuery,
+    matchedBy,
+    dueStatus,
+    instrument: {
+      _id: instrument._id,
+      id: instrument._id,
+      instrumentId: instrument.instrumentId,
+      category: instrument.category,
+      instrumentType: instrument.instrumentType,
+      manufacturer: instrument.manufacturer,
+      modelNumber: instrument.modelNumber,
+      serialNumber: instrument.serialNumber,
+      capacity: instrument.capacity,
+      accuracyClass: instrument.accuracyClass,
+      verificationScaleInterval_e: instrument.verificationScaleInterval_e,
+      minimumCapacity_Min: instrument.minimumCapacity_Min,
+      dateOfManufacture: instrument.dateOfManufacture,
+      installationAddress: instrument.installationAddress,
+      status: instrument.status,
+      verificationFrequencyMonths: instrument.verificationFrequencyMonths,
+      lastVerificationDate: instrument.lastVerificationDate,
+      nextVerificationDueDate: instrument.nextVerificationDueDate,
+      remarks: instrument.remarks,
+      photographs: instrument.photographs || [],
+      documents: instrument.documents || [],
+      createdAt: instrument.createdAt,
+    },
+    stakeholder: instrument.stakeholder
+      ? {
+          _id: instrument.stakeholder._id,
+          businessName: instrument.stakeholder.businessName,
+          tradeLicenseNumber: instrument.stakeholder.tradeLicenseNumber,
+          registeredAddress: instrument.stakeholder.registeredAddress,
+          contactPerson: instrument.stakeholder.contactPerson,
+          gstin: instrument.stakeholder.gstin,
+        }
+      : null,
+    activeCertificate: certificate
+      ? {
+          _id: certificate._id,
+          id: certificate._id,
+          certificateNumber: certificate.certificateNumber,
+          status: certificate.certificateStatus || certificate.status,
+          validFrom: certificate.validFrom,
+          validUntil: certificate.validUntil,
+          verificationDate: certificate.verificationDate || certificate.issuedAt,
+          tamperEvidentHash: certificate.tamperEvidentHash,
+          pdfUrl: certificate.certificateUrl || certificate.pdfUrl,
+          qrToken: certificate.qrToken || certificate.qrVerificationToken,
+          qrUrl: certificate.qrUrl,
+          issuedByOfficer:
+            certificate.issuedBy?.name ||
+            certificate.issuedByOfficer?.name ||
+            'Inspector of Legal Metrology',
+        }
+      : null,
+    recentInspections: (recentInspections || []).map((ins) => ({
+      _id: ins._id,
+      inspectionNumber: ins.inspectionNumber,
+      status: ins.inspectionStatus || ins.status,
+      result: ins.result,
+      inspectionDate: ins.inspectionDate || ins.createdAt,
+      inspector: ins.inspector?.name || 'Enforcement Officer',
+      remarks: ins.remarks,
+    })),
+    activeSchedule: activeSchedule
+      ? {
+          _id: activeSchedule._id,
+          scheduleNumber: activeSchedule.scheduleNumber,
+          scheduledDate: activeSchedule.scheduledDate,
+          timeSlot: activeSchedule.timeSlot,
+          status: activeSchedule.status,
+        }
+      : null,
+    mpeGuidelines,
+  };
+
+  return ApiResponse.success(res, result, 'Instrument details retrieved successfully');
 });
 
 export const updateInstrument = asyncHandler(async (req, res) => {

@@ -6,7 +6,7 @@ interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, pass: string) => Promise<AuthUser>;
+  login: (email: string, pass: string, expectedRole?: UserRole) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasRole: (...roles: UserRole[]) => boolean;
@@ -96,13 +96,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('auth:expired', handleExpired);
   }, [refreshUser]);
 
-  const login = async (email: string, pass: string): Promise<AuthUser> => {
-    const res = await authApi.login({ email, password: pass });
+  const login = async (email: string, pass: string, expectedRole?: UserRole): Promise<AuthUser> => {
+    const res = await authApi.login({
+      email,
+      password: pass,
+      selectedRole: expectedRole,
+    });
     if (!res.success || !res.data) {
       throw new Error(res.message || 'Authentication failed');
     }
 
-    const { token: newToken, user: u } = res.data;
+    const { token: newToken, user: u, stakeholder } = res.data;
     const normalizedUser: AuthUser = {
       id: u._id || u.id,
       name: u.name,
@@ -111,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phone: u.phone,
       designation: u.designation,
       jurisdiction: u.jurisdiction,
-      stakeholderId: u.stakeholderId,
+      stakeholderId: u.stakeholderId || stakeholder?._id,
       token: newToken,
     };
 

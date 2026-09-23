@@ -30,14 +30,38 @@ interface LoginFormInputs {
 }
 
 export const LoginPage: React.FC = () => {
-  const { login, logout, getRoleRedirectPath } = useAuth();
+  const { user, login, getRoleRedirectPath, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const isSubmittingRef = React.useRef(false);
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // If already authenticated, redirect immediately to the user's role dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      const destination = getRoleRedirectPath(user.role);
+      navigate(destination, { replace: true });
+    }
+  }, [user, loading, getRoleRedirectPath, navigate]);
+
+  // Prefetch target dashboard bundle during idle/selection time to eliminate post-login chunk latency
+  const prefetchDashboard = (role: UserRole | '') => {
+    if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
+      import('../admin/AdminDashboard');
+    } else if (
+      role === 'LEGAL_METROLOGY_OFFICER' ||
+      role === 'FIELD_VERIFICATION_OFFICER' ||
+      role === 'GATC_OFFICER'
+    ) {
+      import('../officer/OfficerDashboard');
+    } else if (role === 'BUSINESS_USER') {
+      import('../applicant/ApplicantDashboard');
+    }
+  };
 
   const {
     register,
@@ -53,9 +77,13 @@ export const LoginPage: React.FC = () => {
   const handleRoleChange = (role: UserRole | '') => {
     setSelectedRole(role);
     setServerError(null);
+    if (role) {
+      prefetchDashboard(role);
+    }
   };
 
   const onSubmit = async (data: LoginFormInputs) => {
+    if (submitting || isSubmittingRef.current) return;
     setServerError(null);
 
     if (!selectedRole) {
@@ -63,13 +91,13 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
+    isSubmittingRef.current = true;
     setSubmitting(true);
 
     try {
-      const authUser = await login(data.email, data.password);
+      const authUser = await login(data.email, data.password, selectedRole);
 
       if (authUser?.role !== selectedRole) {
-        await logout();
         setServerError('Selected role does not match this account.');
         return;
       }
@@ -112,6 +140,7 @@ export const LoginPage: React.FC = () => {
     } catch (err: unknown) {
       setServerError(getErrorMessage(err));
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -468,6 +497,8 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={submitting}
+                    onMouseEnter={() => selectedRole && prefetchDashboard(selectedRole)}
+                    onFocus={() => selectedRole && prefetchDashboard(selectedRole)}
                     className="w-full min-h-[48px] bg-[#07549a] hover:bg-[#06457d] disabled:bg-[#07549a]/60 text-white rounded-lg font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition shadow-sm"
                   >
                     {submitting ? (

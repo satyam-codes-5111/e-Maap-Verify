@@ -20,13 +20,14 @@ export function generateToken(user) {
   );
 }
 
-export async function loginUser({ email, password, ipAddress, userAgent }) {
+export async function loginUser({ email, password, selectedRole, ipAddress, userAgent }) {
   if (!email || !password) {
     throw ApiError.badRequest('Email and password are required');
   }
 
-  // Find user and explicitly select password
-  const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+  // Find user and select password plus required fields only
+  const user = await User.findOne({ email: email.toLowerCase().trim() })
+    .select('+password _id name email phone role designation jurisdiction organization isActive lastLogin');
 
   if (!user) {
     // Record audit event for failed login attempt
@@ -75,30 +76,45 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
     throw ApiError.unauthorized('Invalid email address or password.');
   }
 
-  // Update last login
-  user.lastLogin = new Date();
-  await user.save({ validateBeforeSave: false });
+  // If client supplied selectedRole, validate role before proceeding to token generation and audit logging
+  if (selectedRole && user.role !== selectedRole) {
+    await logAuditEvent({
+      user: user._id,
+      userRole: user.role,
+      userEmail: user.email,
+      action: 'LOGIN_FAILED',
+      entity: 'User',
+      entityId: user._id,
+      ipAddress,
+      userAgent,
+      metadata: { reason: 'Role mismatch', requestedRole: selectedRole, actualRole: user.role },
+    });
+    throw ApiError.unauthorized('Selected role does not match this account.');
+  }
+
+  const now = new Date();
+  user.lastLogin = now;
 
   // Generate JWT
   const token = generateToken(user);
 
-  // Fetch stakeholder profile if applicable
-  let stakeholder = null;
-  if (user.role === USER_ROLES.BUSINESS_USER) {
-    stakeholder = await Stakeholder.findOne({ user: user._id });
-  }
-
-  // Record audit log
-  await logAuditEvent({
-    user: user._id,
-    userRole: user.role,
-    userEmail: user.email,
-    action: AUDIT_ACTIONS.USER_LOGIN,
-    entity: 'User',
-    entityId: user._id,
-    ipAddress,
-    userAgent,
-  });
+  // Parallelize lastLogin update, lean stakeholder profile fetch, and audit log write
+  const [_, stakeholder] = await Promise.all([
+    User.updateOne({ _id: user._id }, { $set: { lastLogin: now } }),
+    user.role === USER_ROLES.BUSINESS_USER
+      ? Stakeholder.findOne({ user: user._id }).lean()
+      : null,
+    logAuditEvent({
+      user: user._id,
+      userRole: user.role,
+      userEmail: user.email,
+      action: AUDIT_ACTIONS.USER_LOGIN,
+      entity: 'User',
+      entityId: user._id,
+      ipAddress,
+      userAgent,
+    }),
+  ]);
 
   return {
     token,
@@ -114,7 +130,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       jurisdiction: user.jurisdiction,
       organization: user.organization,
       isActive: user.isActive,
-      lastLogin: user.lastLogin,
+      lastLogin: now,
     },
     stakeholder,
   };

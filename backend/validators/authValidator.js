@@ -4,6 +4,7 @@ import { ApiError } from '../utils/ApiError.js';
 export const loginSchema = z.object({
   email: z.string().email('Please provide a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  selectedRole: z.string().optional(),
 });
 
 export const registerStakeholderSchema = z.object({

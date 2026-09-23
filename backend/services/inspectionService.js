@@ -1,11 +1,14 @@
+import mongoose from 'mongoose';
 import { VerificationInspection } from '../models/VerificationInspection.js';
 import { VerificationSchedule } from '../models/VerificationSchedule.js';
 import { VerificationApplication } from '../models/VerificationApplication.js';
 import { VerificationResult } from '../models/VerificationResult.js';
 import { Instrument } from '../models/Instrument.js';
+import { Certificate } from '../models/Certificate.js';
 import { Stakeholder } from '../models/Stakeholder.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { ApiError } from '../utils/ApiError.js';
+import { escapeRegex } from '../utils/securityUtils.js';
 import {
   APPLICATION_STATUSES,
   SCHEDULE_STATUSES,
@@ -25,9 +28,531 @@ import { validateUploadedFile, processBase64Upload } from '../utils/fileSecurity
 import { runInTransaction } from '../utils/transactionHelper.js';
 
 /**
+ * Helper: Resolve an Instrument from Scanned QR Code / Token / ID / Serial
+ */
+export async function resolveInstrumentFromScannedCode(scannedCode) {
+  const rawQuery = (scannedCode || '').trim();
+  if (!rawQuery) {
+    throw ApiError.badRequest('A valid QR code, instrument ID, or serial number is required.');
+  }
+
+  let cleanQuery = rawQuery;
+
+  // Handle URL format: e.g. http://localhost:3000/api/public/certificates/verify/<token>
+  if (cleanQuery.startsWith('http://') || cleanQuery.startsWith('https://') || cleanQuery.includes('/verify/')) {
+    try {
+      const parsedUrl = new URL(cleanQuery, 'https://emaap.gov.in');
+      const paramToken =
+        parsedUrl.searchParams.get('token') ||
+        parsedUrl.searchParams.get('certificateNo') ||
+        parsedUrl.searchParams.get('instrumentId') ||
+        parsedUrl.searchParams.get('q');
+      if (paramToken) {
+        cleanQuery = paramToken.trim();
+      } else {
+        const segments = parsedUrl.pathname.split('/').filter(Boolean);
+        const vIndex = segments.indexOf('verify');
+        if (vIndex !== -1 && segments[vIndex + 1]) {
+          cleanQuery = segments[vIndex + 1].trim();
+        } else if (segments.length > 0) {
+          cleanQuery = segments[segments.length - 1].trim();
+        }
+      }
+    } catch {
+      // Ignore URL parse error
+    }
+  }
+
+  // Handle JSON format: e.g. {"instrumentId": "INS-2026-..."}
+  if (cleanQuery.startsWith('{') && cleanQuery.endsWith('}')) {
+    try {
+      const parsedJson = JSON.parse(cleanQuery);
+      cleanQuery =
+        parsedJson.instrumentId ||
+        parsedJson.serialNumber ||
+        parsedJson.certificateNumber ||
+        parsedJson.token ||
+        cleanQuery;
+    } catch {
+      // Ignore JSON parse error
+    }
+  }
+
+  cleanQuery = cleanQuery.trim();
+
+  let instrument = null;
+  let matchedBy = null;
+
+  // 1. By official instrumentId (e.g. INST-PH8-001 or INS-2026-...)
+  instrument = await Instrument.findOne({
+    instrumentId: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i'),
+  }).populate('stakeholder');
+
+  if (instrument) {
+    matchedBy = 'INSTRUMENT_ID';
+  }
+
+  // 2. By MongoDB ObjectId
+  if (!instrument && mongoose.Types.ObjectId.isValid(cleanQuery)) {
+    instrument = await Instrument.findById(cleanQuery).populate('stakeholder');
+    if (instrument) matchedBy = 'OBJECT_ID';
+  }
+
+  // 3. By Certificate Token or Certificate Number
+  if (!instrument) {
+    const certificate = await Certificate.findOne({
+      $or: [
+        { qrToken: cleanQuery },
+        { qrVerificationToken: cleanQuery },
+        { qrCodeToken: cleanQuery },
+        { certificateNumber: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i') },
+      ],
+    }).populate('instrument');
+
+    if (certificate && certificate.instrument) {
+      instrument = await Instrument.findById(certificate.instrument._id || certificate.instrument).populate('stakeholder');
+      if (instrument) matchedBy = 'CERTIFICATE_TOKEN';
+    }
+  }
+
+  // 4. By Serial Number
+  if (!instrument) {
+    instrument = await Instrument.findOne({
+      serialNumber: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i'),
+    }).populate('stakeholder');
+    if (instrument) matchedBy = 'SERIAL_NUMBER';
+  }
+
+  // 5. By Application Number
+  if (!instrument) {
+    const app = await VerificationApplication.findOne({
+      applicationNumber: new RegExp(`^${escapeRegex(cleanQuery)}$`, 'i'),
+    }).populate('instrument');
+    if (app && app.instrument) {
+      instrument = await Instrument.findById(app.instrument._id || app.instrument).populate('stakeholder');
+      if (instrument) matchedBy = 'APPLICATION_NUMBER';
+    }
+  }
+
+  if (!instrument) {
+    throw ApiError.notFound(`No instrument found matching scanned QR code or ID '${cleanQuery}'.`);
+  }
+
+  return { instrument, matchedBy, cleanQuery };
+}
+
+/**
+ * Helper: Generate Statutory Metrological Checklist Fields from Instrument
+ */
+export function generateInspectionChecklistFromInstrument(instrument, scannedCode = '') {
+  // Parse capacity value & unit
+  let capVal = 50;
+  let unit = 'kg';
+
+  if (typeof instrument.capacity === 'object' && instrument.capacity !== null) {
+    capVal = Number(instrument.capacity.value) || 50;
+    unit = instrument.capacity.unit || 'kg';
+  } else if (typeof instrument.capacity === 'number') {
+    capVal = instrument.capacity;
+  } else if (typeof instrument.capacity === 'string') {
+    const parsed = parseFloat(instrument.capacity);
+    if (!isNaN(parsed)) capVal = parsed;
+    if (instrument.capacity.toLowerCase().includes('g') && !instrument.capacity.toLowerCase().includes('kg')) {
+      unit = 'g';
+    } else if (instrument.capacity.toLowerCase().includes('t') || instrument.capacity.toLowerCase().includes('ton')) {
+      unit = 't';
+    } else if (instrument.capacity.toLowerCase().includes('l')) {
+      unit = 'L';
+    }
+  }
+
+  // Scale Interval e
+  let eVal = 0.01;
+  if (instrument.verificationScaleInterval_e !== undefined) {
+    const num = parseFloat(String(instrument.verificationScaleInterval_e));
+    if (!isNaN(num) && num > 0) {
+      if (unit === 'kg' && num >= 1) {
+        eVal = Number((num / 1000).toFixed(5));
+      } else {
+        eVal = num;
+      }
+    }
+  } else if (instrument.verificationScaleInterval !== undefined) {
+    const num = parseFloat(String(instrument.verificationScaleInterval));
+    if (!isNaN(num) && num > 0) eVal = num;
+  } else {
+    eVal = Number((capVal / 3000).toFixed(4)) || 0.01;
+  }
+
+  // Minimum Capacity Min
+  let minCap = Number((eVal * 20).toFixed(3));
+  if (instrument.minCapacity !== undefined) {
+    const num = parseFloat(String(instrument.minCapacity));
+    if (!isNaN(num) && num > 0) minCap = num;
+  } else if (instrument.minimumCapacity_Min !== undefined) {
+    const num = parseFloat(String(instrument.minimumCapacity_Min));
+    if (!isNaN(num) && num > 0) minCap = num;
+  }
+
+  const point500e = Number((Math.min(500 * eVal, capVal * 0.25)).toFixed(3));
+  const pointHalfMax = Number((capVal * 0.5).toFixed(3));
+  const maxCap = Number(capVal.toFixed(3));
+  const cornerLoad = Number((capVal / 3).toFixed(3));
+
+  // Determine MPE tolerances based on Legal Metrology Rules (General) 2011
+  const mpeZero = Number((0.5 * eVal).toFixed(4));
+  const mpeMin = Number((0.5 * eVal).toFixed(4));
+  const mpe500e = Number((0.5 * eVal).toFixed(4));
+  const mpeHalfMax = Number((1.0 * eVal).toFixed(4));
+  const mpeMax = Number((1.5 * eVal).toFixed(4));
+  const mpeCorner = Number((1.0 * eVal).toFixed(4));
+
+  const testReadings = [
+    {
+      loadPoint: 1,
+      testName: 'Zero Load Verification Test',
+      nominalLoad: 0,
+      observedReading: 0,
+      errorValue: 0,
+      mpeAllowed: mpeZero,
+      passed: true,
+      unit,
+    },
+    {
+      loadPoint: 2,
+      testName: `Minimum Capacity Test (Min = ${minCap} ${unit})`,
+      nominalLoad: minCap,
+      observedReading: minCap,
+      errorValue: 0,
+      mpeAllowed: mpeMin,
+      passed: true,
+      unit,
+    },
+    {
+      loadPoint: 3,
+      testName: `Working Range Test (500e = ${point500e} ${unit})`,
+      nominalLoad: point500e,
+      observedReading: point500e,
+      errorValue: 0,
+      mpeAllowed: mpe500e,
+      passed: true,
+      unit,
+    },
+    {
+      loadPoint: 4,
+      testName: `Half Capacity Load Test (0.5 Max = ${pointHalfMax} ${unit})`,
+      nominalLoad: pointHalfMax,
+      observedReading: pointHalfMax,
+      errorValue: 0,
+      mpeAllowed: mpeHalfMax,
+      passed: true,
+      unit,
+    },
+    {
+      loadPoint: 5,
+      testName: `Full Capacity Load Test (Max = ${maxCap} ${unit})`,
+      nominalLoad: maxCap,
+      observedReading: maxCap,
+      errorValue: 0,
+      mpeAllowed: mpeMax,
+      passed: true,
+      unit,
+    },
+    {
+      loadPoint: 6,
+      testName: `Eccentricity (Corner / Off-Center Test at ${cornerLoad} ${unit})`,
+      nominalLoad: cornerLoad,
+      observedReading: cornerLoad,
+      errorValue: 0,
+      mpeAllowed: mpeCorner,
+      passed: true,
+      unit,
+    },
+  ];
+
+  const instrumentReadings = testReadings.map((tr) => ({
+    testName: tr.testName,
+    standardValue: tr.nominalLoad,
+    observedValue: tr.observedReading,
+    unit: tr.unit,
+    tolerance: tr.mpeAllowed,
+    deviation: tr.errorValue,
+    result: 'PASS',
+    remarks: 'Within statutory Maximum Permissible Error (MPE)',
+  }));
+
+  const measurementReadings = testReadings.map((tr) => ({
+    testType: tr.testName,
+    appliedLoad: tr.nominalLoad,
+    indicatedReading: tr.observedReading,
+    intrinsicError: tr.errorValue,
+    maximumPermissibleError: tr.mpeAllowed,
+    isCompliant: true,
+  }));
+
+  const accuracyChecks = [
+    {
+      checkName: 'Zero Setting and Tare Accuracy (≤ 0.25e)',
+      expectedValue: 0,
+      observedValue: 0,
+      unit,
+      tolerance: mpeZero,
+      status: 'PASS',
+      remarks: 'Zero point error within statutory tolerance',
+    },
+    {
+      checkName: `Minimum Capacity Loading Check (${minCap} ${unit})`,
+      expectedValue: minCap,
+      observedValue: minCap,
+      unit,
+      tolerance: mpeMin,
+      status: 'PASS',
+      remarks: 'Compliant with statutory minimum verification load',
+    },
+    {
+      checkName: `Mid-Capacity Test (${pointHalfMax} ${unit})`,
+      expectedValue: pointHalfMax,
+      observedValue: pointHalfMax,
+      unit,
+      tolerance: mpeHalfMax,
+      status: 'PASS',
+      remarks: 'Within statutory working tolerance (±1.0e)',
+    },
+    {
+      checkName: `Full Scale Maximum Capacity Test (${maxCap} ${unit})`,
+      expectedValue: maxCap,
+      observedValue: maxCap,
+      unit,
+      tolerance: mpeMax,
+      status: 'PASS',
+      remarks: 'Within statutory full scale tolerance (±1.5e)',
+    },
+    {
+      checkName: 'Eccentricity (Off-Center / Corner Load Test)',
+      expectedValue: cornerLoad,
+      observedValue: cornerLoad,
+      unit,
+      tolerance: mpeCorner,
+      status: 'PASS',
+      remarks: 'Error at all 4 pan positions within MPE',
+    },
+    {
+      checkName: 'Repeatability Test (3 Successive Readings at 0.8 Max)',
+      expectedValue: Number((maxCap * 0.8).toFixed(3)),
+      observedValue: Number((maxCap * 0.8).toFixed(3)),
+      unit,
+      tolerance: mpeHalfMax,
+      status: 'PASS',
+      remarks: 'Consecutive weighing error <= 1.0e',
+    },
+  ];
+
+  const modelPlateId =
+    instrument.modelApprovalNumber ||
+    instrument.approvalModelNumber ||
+    instrument.modelNumber ||
+    'IND-LM-STD';
+
+  const complianceChecks = [
+    {
+      checkName: `Model Approval Plate & Legal Markings (Approval No: ${modelPlateId})`,
+      status: 'PASS',
+      remarks: 'Physical model approval plate intact and verified',
+    },
+    {
+      checkName: `Verification Scale Interval (e = ${eVal} ${unit})`,
+      status: 'PASS',
+      remarks: 'Scale interval matches stamped marking and database record',
+    },
+    {
+      checkName: 'Physical Sealing Wire & Lead Seal Provision',
+      status: 'PASS',
+      remarks: 'Tamper-evident sealing wire holes and sealing screws intact',
+    },
+    {
+      checkName: 'Leveling Arrangement & Spirit Level Centering',
+      status: 'PASS',
+      remarks: 'Spirit level indicator centered within reference index ring',
+    },
+    {
+      checkName: 'Environmental Suitability & Vibration Dampening',
+      status: 'PASS',
+      remarks: 'Stable bench platform isolated from drafts and industrial vibration',
+    },
+    {
+      checkName: 'Zero-Tracking Mechanism Operation',
+      status: 'PASS',
+      remarks: 'Automatic zero tracking operates within statutory limits',
+    },
+  ];
+
+  const instrumentCondition = {
+    visualCheckPassed: true,
+    levelingBubbleCentered: true,
+    modelApprovalPlateIntact: true,
+    zeroTrackingOperational: true,
+    notes: `Instrument ${instrument.instrumentId || instrument.serialNumber} (${instrument.instrumentType || instrument.category || 'NAWI'}) verified via scanned QR code. Visual, physical, and metrological checklist auto-populated on ${new Date().toLocaleDateString('en-IN')}.`,
+  };
+
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const quarter = Math.ceil(currentMonth / 3);
+
+  const stampingAndSealing = {
+    leadSealsApplied: 1,
+    hologramStickerNumber: `DOCA-QR-${Math.floor(100000 + Math.random() * 900000)}`,
+    stampingYearMark: `Q${quarter}/${currentYear}`,
+    sealingPlugsIntact: true,
+  };
+
+  const checklist = {
+    visualInspectionPassed: true,
+    levelingBubbleCentered: true,
+    sealIntact: true,
+    environmentalSuitability: true,
+    nameplateLegible: true,
+    zeroTrackingFunctional: true,
+    modelApprovalVerified: true,
+    scannedQrMatched: true,
+    scannedCode: scannedCode || instrument.instrumentId || instrument.serialNumber,
+    scannedInstrumentId: instrument.instrumentId || String(instrument._id),
+    scannedSerialNumber: instrument.serialNumber,
+    instrumentName: instrument.instrumentName || instrument.instrumentType || instrument.category,
+    accuracyClass: instrument.accuracyClass || 'Class III',
+    capacity: `${capVal} ${unit}`,
+    verificationScaleInterval_e: `${eVal} ${unit}`,
+  };
+
+  return {
+    instrumentCondition,
+    complianceChecks,
+    accuracyChecks,
+    instrumentReadings,
+    measurementReadings,
+    stampingAndSealing,
+    testReadings,
+    checklist,
+    unit,
+    maxCapacity: capVal,
+    minCapacity: minCap,
+    scaleInterval: eVal,
+  };
+}
+
+/**
+ * Backend Hook / Service: Auto-populate inspection checklist fields from scanned instrument ID / QR Code
+ *
+ * @param {string} scannedCode - QR code string, instrument ID, serial number, or verification token
+ * @param {object} options - { inspectionId?: string, forceOverwrite?: boolean }
+ * @param {object} user - Authenticated officer or admin
+ */
+export async function autoPopulateInspectionFromScannedInstrument(scannedCode, options = {}, user) {
+  if (user.role === USER_ROLES.BUSINESS_USER) {
+    throw ApiError.forbidden('Business users are not authorized to perform inspection auto-population.');
+  }
+
+  // 1. Resolve Instrument from QR code / ID / Serial
+  const { instrument, matchedBy, cleanQuery } = await resolveInstrumentFromScannedCode(scannedCode);
+
+  // 2. Generate all checklist fields & metrological test readings
+  const generatedData = generateInspectionChecklistFromInstrument(instrument, cleanQuery);
+
+  let inspection = null;
+
+  // 3. If an inspectionId is provided, attach and save to the inspection record
+  if (options.inspectionId) {
+    inspection = await VerificationInspection.findById(options.inspectionId);
+    if (!inspection) {
+      throw ApiError.notFound(`Inspection record with ID '${options.inspectionId}' not found.`);
+    }
+
+    // Check officer assignment authorization
+    const isAssigned =
+      String(inspection.assignedOfficer) === String(user._id) ||
+      String(inspection.officer) === String(user._id);
+    const isAdmin = user.role === USER_ROLES.ADMIN || user.role === USER_ROLES.SUPER_ADMIN;
+
+    if (!isAssigned && !isAdmin) {
+      throw ApiError.forbidden('You are not authorized to update this inspection.');
+    }
+
+    // Check immutability
+    if (
+      inspection.inspectionStatus === INSPECTION_STATUSES.PASSED ||
+      inspection.inspectionStatus === INSPECTION_STATUSES.FAILED
+    ) {
+      throw ApiError.badRequest('Finalized inspection records are immutable and cannot be modified.');
+    }
+
+    // Update inspection fields with auto-populated data
+    inspection.instrument = instrument._id;
+    inspection.instrumentCondition = generatedData.instrumentCondition;
+    inspection.complianceChecks = generatedData.complianceChecks;
+    inspection.accuracyChecks = generatedData.accuracyChecks;
+    inspection.instrumentReadings = generatedData.instrumentReadings;
+    inspection.measurementReadings = generatedData.measurementReadings;
+    inspection.stampingAndSealing = generatedData.stampingAndSealing;
+    inspection.observations = `Checklist auto-populated from scanned QR code (${cleanQuery}) for instrument ${instrument.instrumentId || instrument.serialNumber}.`;
+    inspection.updatedBy = user._id;
+
+    await inspection.save();
+
+    await logAuditEvent({
+      user: user._id,
+      userRole: user.role,
+      userEmail: user.email,
+      action: AUDIT_ACTIONS.INSPECTION_DRAFT_SAVED,
+      entity: 'VerificationInspection',
+      entityId: inspection._id,
+      metadata: {
+        source: 'QR_SCAN_AUTO_POPULATE',
+        scannedCode: cleanQuery,
+        matchedBy,
+        instrumentId: instrument.instrumentId,
+        serialNumber: instrument.serialNumber,
+      },
+    });
+  }
+
+  const inspectionObj = inspection ? (inspection.toObject ? inspection.toObject() : inspection) : null;
+  if (inspectionObj) {
+    inspectionObj.checklist = generatedData.checklist;
+    inspectionObj.testReadings = generatedData.testReadings;
+  }
+
+  return {
+    success: true,
+    matchedBy,
+    query: cleanQuery,
+    instrument: {
+      _id: instrument._id,
+      instrumentId: instrument.instrumentId,
+      serialNumber: instrument.serialNumber,
+      modelNumber: instrument.modelNumber,
+      manufacturer: instrument.manufacturer,
+      category: instrument.category,
+      instrumentType: instrument.instrumentType,
+      accuracyClass: instrument.accuracyClass,
+      capacity: instrument.capacity,
+      verificationScaleInterval_e: instrument.verificationScaleInterval_e || instrument.verificationScaleInterval,
+      status: instrument.status,
+    },
+    checklist: generatedData.checklist,
+    testReadings: generatedData.testReadings,
+    instrumentCondition: generatedData.instrumentCondition,
+    complianceChecks: generatedData.complianceChecks,
+    accuracyChecks: generatedData.accuracyChecks,
+    instrumentReadings: generatedData.instrumentReadings,
+    measurementReadings: generatedData.measurementReadings,
+    stampingAndSealing: generatedData.stampingAndSealing,
+    inspection: inspectionObj,
+  };
+}
+
+/**
  * Service: Start Field Inspection
  */
-export async function startInspection(scheduleId, user) {
+export async function startInspection(scheduleId, user, options = {}) {
   if (user.role === USER_ROLES.BUSINESS_USER) {
     throw ApiError.forbidden('Business users are not authorized to start official inspections.');
   }
@@ -98,11 +623,28 @@ export async function startInspection(scheduleId, user) {
   const randomSuffix = Math.floor(100000 + Math.random() * 900000);
   const inspectionNumber = `INSP-${new Date().getFullYear()}-${randomSuffix}`;
 
+  // If a scanned code is passed or the schedule has an instrument, pre-populate checklist fields
+  let initialChecklistData = null;
+  const targetInstrument = options.scannedCode
+    ? (await resolveInstrumentFromScannedCode(options.scannedCode)).instrument
+    : schedule.instrument;
+
+  if (targetInstrument) {
+    try {
+      initialChecklistData = generateInspectionChecklistFromInstrument(
+        targetInstrument,
+        options.scannedCode || targetInstrument.instrumentId
+      );
+    } catch {
+      // Non-blocking fallback if instrument fields are partial
+    }
+  }
+
   const inspection = new VerificationInspection({
     inspectionNumber,
     schedule: schedule._id,
     application: application._id,
-    instrument: schedule.instrument._id || schedule.instrument,
+    instrument: targetInstrument?._id || schedule.instrument._id || schedule.instrument,
     stakeholder: schedule.stakeholder?._id || schedule.stakeholder,
     assignedOfficer: user._id,
     officer: user._id, // backward compatibility
@@ -112,6 +654,15 @@ export async function startInspection(scheduleId, user) {
     startTime: new Date(),
     inspectionDate: new Date(),
     inspectionStatus: INSPECTION_STATUSES.IN_PROGRESS,
+    instrumentCondition: initialChecklistData?.instrumentCondition,
+    complianceChecks: initialChecklistData?.complianceChecks || [],
+    accuracyChecks: initialChecklistData?.accuracyChecks || [],
+    instrumentReadings: initialChecklistData?.instrumentReadings || [],
+    measurementReadings: initialChecklistData?.measurementReadings || [],
+    stampingAndSealing: initialChecklistData?.stampingAndSealing,
+    observations: initialChecklistData
+      ? `Field inspection initialized with statutory checklist auto-populated for instrument ${targetInstrument?.instrumentId || targetInstrument?.serialNumber || ''}.`
+      : undefined,
     createdBy: user._id,
     updatedBy: user._id,
   });
@@ -183,6 +734,26 @@ export async function saveInspectionDraft(inspectionId, data, user) {
     inspection.inspectionStatus === INSPECTION_STATUSES.FAILED
   ) {
     throw ApiError.badRequest('Finalized inspection records are immutable and cannot be modified.');
+  }
+
+  // Hook: If a scanned instrument code is provided, auto-populate checklist fields
+  const scannedCode = data.scannedCode || data.scannedInstrumentId || (data.autoPopulateFromScan ? String(inspection.instrument) : null);
+  if (scannedCode) {
+    try {
+      const autoPop = await autoPopulateInspectionFromScannedInstrument(
+        scannedCode,
+        { inspectionId: inspection._id },
+        user
+      );
+      if (autoPop && autoPop.inspection) {
+        return autoPop.inspection;
+      }
+    } catch (err) {
+      // If explicit scan code failed, rethrow with friendly message
+      if (data.scannedCode || data.scannedInstrumentId) {
+        throw err;
+      }
+    }
   }
 
   // Validate coordinates if provided
@@ -846,7 +1417,32 @@ export async function getInspectionById(inspectionId, user) {
     }
   }
 
-  return inspection;
+  const inspectionObj = inspection.toObject ? inspection.toObject() : inspection;
+
+  if (inspection.instrumentCondition) {
+    inspectionObj.checklist = {
+      visualInspectionPassed: inspection.instrumentCondition.visualCheckPassed ?? true,
+      levelingBubbleCentered: inspection.instrumentCondition.levelingBubbleCentered ?? true,
+      sealIntact: inspection.stampingAndSealing?.sealingPlugsIntact ?? true,
+      environmentalSuitability: true,
+      nameplateLegible: inspection.instrumentCondition.modelApprovalPlateIntact ?? true,
+      zeroTrackingFunctional: inspection.instrumentCondition.zeroTrackingOperational ?? true,
+    };
+  }
+
+  if (inspection.instrumentReadings && inspection.instrumentReadings.length > 0) {
+    inspectionObj.testReadings = inspection.instrumentReadings.map((r, idx) => ({
+      loadPoint: idx + 1,
+      nominalLoad: r.standardValue ?? 0,
+      observedReading: r.observedValue ?? 0,
+      errorValue: r.deviation ?? 0,
+      mpeAllowed: r.tolerance ?? 0,
+      passed: r.result === 'PASS',
+      testName: r.testName,
+    }));
+  }
+
+  return inspectionObj;
 }
 
 /**

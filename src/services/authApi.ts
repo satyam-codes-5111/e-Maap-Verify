@@ -1,10 +1,29 @@
 import api from './api';
 import { AuthUser, ApiResponse } from '../types';
 
+let activeLoginPromise: {
+  key: string;
+  promise: Promise<ApiResponse<{ token: string; role?: string; user: any; stakeholder?: any }>>;
+} | null = null;
+
 export const authApi = {
-  login: async (credentials: { email: string; password: string }) => {
-    const res = await api.post<ApiResponse<{ token: string; user: any }>>('/auth/login', credentials);
-    return res.data;
+  login: async (credentials: { email: string; password: string; selectedRole?: string }) => {
+    const dedupKey = `${credentials.email.toLowerCase().trim()}:${credentials.selectedRole || ''}`;
+    if (activeLoginPromise && activeLoginPromise.key === dedupKey) {
+      return activeLoginPromise.promise;
+    }
+
+    const promise = api
+      .post<ApiResponse<{ token: string; role?: string; user: any; stakeholder?: any }>>('/auth/login', credentials)
+      .then((res) => res.data)
+      .finally(() => {
+        if (activeLoginPromise?.key === dedupKey) {
+          activeLoginPromise = null;
+        }
+      });
+
+    activeLoginPromise = { key: dedupKey, promise };
+    return promise;
   },
 
   getMe: async () => {

@@ -383,3 +383,40 @@ export const uploadInspectionPhoto = asyncHandler(async (req, res) => {
 
   return ApiResponse.created(res, inspection, 'Inspection photo uploaded successfully');
 });
+
+/**
+ * Controller: Auto-populate inspection checklist fields from scanned instrument ID / QR Code
+ * POST /api/inspections/:id/populate-from-scan
+ * POST /api/inspections/auto-populate-checklist
+ */
+export const autoPopulateInspectionChecklist = asyncHandler(async (req, res) => {
+  const inspectionId = req.params.id || req.body.inspectionId;
+  const rawCode =
+    req.body.scannedCode ||
+    req.body.instrumentId ||
+    req.body.code ||
+    req.body.token ||
+    req.query.q ||
+    req.query.code;
+
+  if (!rawCode) {
+    throw ApiError.badRequest('Scanned instrument ID, QR code, or serial number is required.');
+  }
+
+  if (inspectionId && !mongoose.Types.ObjectId.isValid(inspectionId)) {
+    throw ApiError.badRequest('Invalid inspection ID format.');
+  }
+
+  const result = await inspectionService.autoPopulateInspectionFromScannedInstrument(
+    rawCode,
+    { inspectionId },
+    req.user
+  );
+
+  return ApiResponse.success(
+    res,
+    result,
+    'Inspection checklist fields and statutory accuracy load tests auto-populated successfully from scanned instrument.'
+  );
+});
+

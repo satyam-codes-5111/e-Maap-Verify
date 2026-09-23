@@ -1,7 +1,14 @@
 import api from './api';
-import { InstrumentItem, ApiResponse } from '../types';
+import { InstrumentItem, ApiResponse, InstrumentScanLookupResult } from '../types';
 
 export const instrumentApi = {
+  lookupByScan: async (query: string) => {
+    const res = await api.get<ApiResponse<InstrumentScanLookupResult>>('/instruments/scan/lookup', {
+      params: { q: query.trim() },
+    });
+    return res.data;
+  },
+
   getInstruments: async (params?: Record<string, any>) => {
     const res = await api.get<ApiResponse<{ instruments: InstrumentItem[]; pagination?: any }>>('/instruments', {
       params,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { inspectionApi } from '../../services/inspectionApi';
 import { InspectionItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
@@ -7,6 +7,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { ErrorState } from '../../components/common/ErrorState';
+import { OfficerQrScannerModal } from '../../components/officer/OfficerQrScannerModal';
 import {
   ClipboardCheck,
   Plus,
@@ -17,16 +18,32 @@ import {
   ArrowRight,
   Camera,
   Scale,
+  QrCode,
+  Sparkles,
+  RefreshCw,
+  Info,
 } from 'lucide-react';
 
 export const InspectionChecklistPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [inspection, setInspection] = useState<InspectionItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // QR Scanner modal state
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isAutoPopulating, setIsAutoPopulating] = useState(false);
+  const [lastAutoPopulatedTime, setLastAutoPopulatedTime] = useState<string | null>(null);
+  const [scannedSummary, setScannedSummary] = useState<{
+    instrumentId?: string;
+    serialNumber?: string;
+    accuracyClass?: string;
+    capacity?: string;
+  } | null>(null);
 
   // Checklist items
   const [checklist, setChecklist] = useState({
@@ -54,40 +71,106 @@ export const InspectionChecklistPage: React.FC = () => {
   const [nominalInput, setNominalInput] = useState('10.0');
   const [observedInput, setObservedInput] = useState('10.0');
 
-  useEffect(() => {
-    const fetchInspection = async () => {
-      if (!id) return;
-      setLoading(true);
-      try {
-        const res = await inspectionApi.getInspectionById(id);
-        if (res.success && res.data) {
-          setInspection(res.data);
-          if (res.data.checklist) {
-            setChecklist((prev) => ({ ...prev, ...res.data.checklist }));
-          }
-          if (res.data.testReadings && res.data.testReadings.length > 0) {
-            setReadings(
-              (res.data.testReadings as any[]).map((r: any, idx: number) => ({
-                loadPoint: r.loadPoint ?? (idx + 1),
-                nominalLoad: r.nominalLoad ?? r.nominalValue ?? 0,
-                observedReading: r.observedReading ?? r.observedValue ?? 0,
-                errorValue: r.errorValue ?? r.error ?? 0,
-                mpeAllowed: r.mpeAllowed ?? r.maximumPermissibleError ?? 0,
-                passed: r.passed ?? r.isWithinMpe ?? true,
-              }))
-            );
-          }
-        } else {
-          setError(res.message || 'Inspection file not found');
+  const fetchInspection = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await inspectionApi.getInspectionById(id);
+      if (res.success && res.data) {
+        setInspection(res.data);
+        if (res.data.checklist) {
+          setChecklist((prev) => ({ ...prev, ...res.data.checklist }));
         }
-      } catch (err: unknown) {
-        setError(getErrorMessage(err));
-      } finally {
-        setLoading(false);
+        if (res.data.testReadings && res.data.testReadings.length > 0) {
+          setReadings(
+            (res.data.testReadings as any[]).map((r: any, idx: number) => ({
+              loadPoint: r.loadPoint ?? (idx + 1),
+              nominalLoad: r.nominalLoad ?? r.nominalValue ?? 0,
+              observedReading: r.observedReading ?? r.observedValue ?? 0,
+              errorValue: r.errorValue ?? r.error ?? 0,
+              mpeAllowed: r.mpeAllowed ?? r.maximumPermissibleError ?? 0,
+              passed: r.passed ?? r.isWithinMpe ?? true,
+            }))
+          );
+        }
+      } else {
+        setError(res.message || 'Inspection file not found');
       }
-    };
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchInspection();
   }, [id]);
+
+  // Handle auto-populating checklist fields from scanned code via backend hook
+  const handleAutoPopulateFromCode = async (code: string) => {
+    if (!id || !code.trim()) return;
+    setIsAutoPopulating(true);
+    try {
+      const res = await inspectionApi.autoPopulateFromScan(id, code.trim());
+      if (res.success && res.data) {
+        const payload = res.data;
+        if (payload.checklist) {
+          setChecklist((prev) => ({ ...prev, ...payload.checklist }));
+        }
+        if (payload.testReadings && Array.isArray(payload.testReadings)) {
+          setReadings(
+            payload.testReadings.map((r: any, idx: number) => ({
+              loadPoint: r.loadPoint ?? (idx + 1),
+              nominalLoad: r.nominalLoad ?? r.standardValue ?? 0,
+              observedReading: r.observedReading ?? r.observedValue ?? 0,
+              errorValue: r.errorValue ?? r.deviation ?? 0,
+              mpeAllowed: r.mpeAllowed ?? r.tolerance ?? 0.005,
+              passed: r.passed ?? r.result === 'PASS' ?? true,
+            }))
+          );
+        }
+        if (payload.instrument) {
+          setScannedSummary({
+            instrumentId: payload.instrument.instrumentId,
+            serialNumber: payload.instrument.serialNumber,
+            accuracyClass: payload.instrument.accuracyClass,
+            capacity:
+              typeof payload.instrument.capacity === 'object'
+                ? `${payload.instrument.capacity.value} ${payload.instrument.capacity.unit || 'kg'}`
+                : String(payload.instrument.capacity || ''),
+          });
+        }
+        setLastAutoPopulatedTime(new Date().toLocaleTimeString());
+        setToast({
+          id: String(Date.now()),
+          type: 'success',
+          title: 'Checklist Auto-Populated',
+          message: `Statutory checklist and test points auto-populated from scanned QR for ${
+            payload.instrument?.instrumentId || code
+          }.`,
+        });
+      }
+    } catch (err: unknown) {
+      setToast({
+        id: String(Date.now()),
+        type: 'error',
+        title: 'Auto-Populate Failed',
+        message: getErrorMessage(err),
+      });
+    } finally {
+      setIsAutoPopulating(false);
+      setIsScannerOpen(false);
+    }
+  };
+
+  // If page was navigated with ?scannedCode=... or ?instrumentId=..., trigger auto-populate automatically
+  useEffect(() => {
+    const codeParam = searchParams.get('scannedCode') || searchParams.get('instrumentId');
+    if (codeParam && id && !loading) {
+      handleAutoPopulateFromCode(codeParam);
+    }
+  }, [id, searchParams, loading]);
 
   const handleAddReading = () => {
     const nom = parseFloat(nominalInput);
@@ -173,6 +256,20 @@ export const InspectionChecklistPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setIsScannerOpen(true)}
+              disabled={isAutoPopulating}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0D2B4F] rounded-lg transition shadow-xs"
+              title="Scan instrument QR code or data plate to auto-populate checklist fields"
+            >
+              {isAutoPopulating ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FF9933]" />
+              ) : (
+                <QrCode className="w-3.5 h-3.5 text-[#FF9933]" />
+              )}
+              <span>{isAutoPopulating ? 'Auto-Populating...' : 'Scan QR Auto-Fill'}</span>
+            </button>
+            <button
+              type="button"
               onClick={handleSave}
               disabled={saving}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition"
@@ -208,6 +305,52 @@ export const InspectionChecklistPage: React.FC = () => {
         >
           3. Final Verdict & Seal
         </Link>
+      </div>
+
+      {/* QR Auto-Populate Smart Banner */}
+      <div className="bg-gradient-to-r from-blue-900/5 via-indigo-900/5 to-emerald-900/5 border border-blue-200/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-start gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#123B6D] text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Sparkles className="w-4 h-4 text-[#FF9933]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900">Field QR Code Auto-Populate Hook</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                Rule 2011 MPE Standard
+              </span>
+            </div>
+            <p className="text-slate-600 text-[11px] mt-0.5">
+              Scan the physical instrument QR code or verification sticker to automatically populate statutory checks and 6 standard load points (Zero, Min, 500e, 0.5 Max, Max, Eccentricity).
+              {lastAutoPopulatedTime && (
+                <span className="ml-2 font-medium text-emerald-700">
+                  (Auto-populated at {lastAutoPopulatedTime})
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsScannerOpen(true)}
+            disabled={isAutoPopulating}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#123B6D] hover:bg-[#0D2B4F] rounded-lg transition shadow-xs"
+          >
+            <QrCode className="w-3.5 h-3.5 text-[#FF9933]" />
+            <span>{isAutoPopulating ? 'Fetching...' : 'Scan QR Now'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAutoPopulateFromCode('INST-PH8-001')}
+            disabled={isAutoPopulating}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition"
+            title="Auto-populate using demo instrument ID"
+          >
+            <span>Demo INST-PH8-001</span>
+          </button>
+        </div>
       </div>
 
       {/* Instrument Overview */}
@@ -414,6 +557,14 @@ export const InspectionChecklistPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* QR Code Scanner Modal */}
+      <OfficerQrScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleAutoPopulateFromCode}
+        isLoading={isAutoPopulating}
+      />
     </div>
   );
 };

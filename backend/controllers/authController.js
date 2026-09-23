@@ -8,13 +8,14 @@ import * as authService from '../services/authService.js';
  * @access  Public
  */
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, selectedRole } = req.body;
   const ipAddress = req.ip || req.connection?.remoteAddress || req.headers['x-forwarded-for'];
   const userAgent = req.headers['user-agent'];
 
   const result = await authService.loginUser({
     email,
     password,
+    selectedRole,
     ipAddress,
     userAgent,
   });
