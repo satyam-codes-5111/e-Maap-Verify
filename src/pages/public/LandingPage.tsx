@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GovFooter } from '../../components/layout/GovFooter';
 import { LoginModal } from '../../components/auth/LoginModal';
-import heroImage from './images/legal-metrology-hero.webp';
+
+import heroImage1 from './images/legal-metrology-hero-1.webp';
+import heroImage2 from './images/legal-metrology-hero-2.webp';
+import heroImage3 from './images/legal-metrology-hero-3.webp';
+import appImage from './images/image3.webp';
+
 import {
   Scale,
   Search,
@@ -16,13 +21,12 @@ import {
   Download,
   Smartphone,
   Users,
-  Home,
-  Landmark,
   Phone,
-  Menu,
+  MapPin,
   X,
-  ChevronDown,
-  Megaphone,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 type Language = 'en' | 'hi';
@@ -31,16 +35,65 @@ type FontSize = 'small' | 'normal' | 'large';
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
 
+  /* =========================================================
+     HERO IMAGE MARQUEE / SLIDER
+  ========================================================= */
+
+  const heroImages = [
+    {
+      src: heroImage1,
+      alt: 'Legal Metrology Verification Portal',
+      title: 'Legal Metrology Verification',
+      tag: 'Act, 2009',
+    },
+    {
+      src: heroImage2,
+      alt: 'Weighing and Measuring Instrument Verification',
+      title: 'Instrument Stamping & Certification',
+      tag: 'Standard Weights',
+    },
+    {
+      src: heroImage3,
+      alt: 'Consumer Protection & Field Verification',
+      title: 'Official Field Verification & Standards',
+      tag: 'Consumer Protection',
+    },
+  ];
+
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setHeroIndex((current) => (current + 1) % heroImages.length);
+    }, 4500);
+
+    return () => window.clearInterval(interval);
+  }, [heroImages.length]);
+
+  const nextHero = () => {
+    setHeroIndex((current) => (current + 1) % heroImages.length);
+  };
+
+  const previousHero = () => {
+    setHeroIndex(
+      (current) => (current - 1 + heroImages.length) % heroImages.length
+    );
+  };
+
   const [language, setLanguage] = useState<Language>('en');
   const [fontSize, setFontSize] = useState<FontSize>('normal');
   const [tokenInput, setTokenInput] = useState('');
-  const [mobileMenu, setMobileMenu] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [downloadToast, setDownloadToast] = useState(false);
 
+  /* =========================================================
+     APK DOWNLOAD
+  ========================================================= */
+
   const handleDownloadApk = () => {
     setDownloadToast(true);
-    setTimeout(() => {
+
+    window.setTimeout(() => {
       setDownloadToast(false);
     }, 4500);
   };
@@ -51,287 +104,299 @@ export const LandingPage: React.FC = () => {
 
   const translations = {
     en: {
-      government: 'Government of India',
-      department: 'Department of Consumer Affairs',
-      indiaGov: 'Government of India',
-      act: 'Legal Metrology Act, 2009',
+      govIndia: 'Government of India',
+      doca: 'Department of Consumer Affairs',
+      ministry:
+        'Ministry of Consumer Affairs, Food & Public Distribution',
 
       portalTitle: 'e-Maap Verify',
       portalSubtitle:
         'Online Verification System for Weighing & Measuring Instruments',
-      legalMetrology: 'Legal Metrology | GoI',
 
-      helpline: 'Helpline / Admission Enquiry',
+      legalMetrologyBadge: 'Legal Metrology Act, 2009',
+
+      helpline: 'Helpline / Enquiry',
       phone: '+91 7708001234',
+
       login: 'Login',
       installApp: 'Install App',
       downloadApp: 'Download Android App',
 
-      home: 'Home',
-      about: 'About Us',
-      services: 'Services',
-      actsRules: 'Act & Rules',
-      downloads: 'Downloads',
-      faqs: 'FAQs',
-      contact: 'Contact Us',
-
-      heroTitle: 'Ensuring Accuracy,',
+      heroTitle1: 'Ensuring Accuracy,',
       heroTitle2: 'Building Trust',
+
       heroText:
         'e-Maap Verify is an online platform for verification of weighing and measuring instruments under the Legal Metrology Act, 2009 and Rules, 2011.',
 
-      apply: 'Apply for Verification',
-      knowMore: 'Know More',
-
-      updates: 'Latest Updates & Notices',
-      viewAll: 'View All',
-
-      latest1Title: '10 Sep 2025',
-      latest1:
-        'New guidelines for online verification of weighing instruments issued.',
-
-      latest2Title: '05 Sep 2025',
-      latest2:
-        'Implementation of revised fee structure under Legal Metrology Rules, 2011.',
-
-      latest3Title: '28 Aug 2025',
-      latest3:
-        'System maintenance scheduled for 14 Sep 2025 (10:00 AM – 12:00 PM).',
-
-      latest4Title: '20 Aug 2025',
-      latest4:
-        'General awareness campaign on legal metrology compliance.',
-
-      servicesTitle: 'Our Services',
-      servicesSubtitle:
-        'Citizen-centric services for transparent and accurate measurements.',
-      viewServices: 'View All Services',
-
       applyVerification: 'Apply for Verification',
-      applyDescription:
-        'Submit application for verification of weighing & measuring instruments.',
-
       verifyCertificate: 'Verify Certificate',
-      verifyDescription:
+
+      service1Title: 'Apply for Verification',
+      service1Desc:
+        'Submit application for weighing & measuring instruments verification.',
+
+      service2Title: 'Verify Certificate',
+      service2Desc:
         'Scan QR code or enter certificate details to verify authenticity.',
 
-      checkStatus: 'Check Application Status',
-      statusDescription:
-        'Track your application and verification status.',
+      service3Title: 'Check Application Status',
+      service3Desc:
+        'Track your inspection schedule and application status.',
 
-      registered: 'Registered LMOs / GATCs',
-      registeredDescription:
-        'View list of approved Legal Metrology Officers and GATCs.',
+      service4Title: 'Registered LMO / GATC',
+      service4Desc:
+        'Access authorized Legal Metrology Officers and test centers.',
 
-      actRules: 'Act & Rules',
-      actDescription:
-        'Read Legal Metrology Act, 2009 and Rules, 2011.',
+      aboutTitle: 'About e-Maap Verify',
 
-      download: 'Downloads',
-      downloadDescription:
-        'Get forms, guidelines, manuals and other useful documents.',
+      aboutDesc:
+        'A digital platform for transparent and efficient legal metrology services, supporting verification of weighing and measuring instruments and protecting consumer interests.',
 
-      legalTitle: 'Legal Metrology',
-      legalText:
-        'Legal Metrology ensures fairness in trade and protects the rights of consumers by regulating weights and measures.',
+      feat1Title: 'Digital Verification',
+      feat1Desc:
+        'End-to-end online workflow under Legal Metrology Act, 2009.',
 
-      fairTrade: 'Fair Trade Practices',
-      consumerProtection: 'Consumer Protection',
-      accurate: 'Accurate Measurements',
-      quality: 'Quality & Trust',
-      learnMore: 'Learn More',
+      feat2Title: 'QR Certificate',
+      feat2Desc:
+        'Tamper-evident digital certificates with instant scan validation.',
 
-      quickVerifyTitle: 'Verify Certificate',
-      quickVerifyText:
-        'Enter certificate number or QR verification token to verify authenticity.',
+      feat3Title: 'GPS-based Inspection Evidence',
+      feat3Desc:
+        'Geo-tagged and timestamped verification records by officers.',
+
+      feat4Title: 'Transparent Workflow',
+      feat4Desc:
+        'Seamless multi-role tracking across traders, officers and labs.',
+
+      quickVerifyTitle: 'Quick Certificate Verification',
+
+      quickVerifyDesc:
+        'Enter Certificate No. or QR Verification Token to verify authenticity.',
 
       searchPlaceholder:
         'Enter Certificate No. or QR Verification Token...',
+
       verifyNow: 'Verify Now',
 
-      bottomConsumer: 'Consumer Protection',
-      bottomConsumerText:
-        'Ensuring accurate weights and measures for a fair marketplace.',
+      frameworkTitle: 'Legal Metrology Framework',
+      frameworkSubtitle: 'Key Acts, Rules and Services',
 
-      bottomCompliance: 'Legal Compliance',
-      bottomComplianceText:
-        'As per Legal Metrology Act, 2009 and Rules, 2011.',
+      rule1Title: 'Legal Metrology Act, 2009',
+      rule1Desc:
+        'Statutory standards of weights and measures, regulation of trade and commerce.',
 
-      bottomCitizen: 'Service to Citizens',
-      bottomCitizenText:
-        'Transparent, efficient and technology-driven services.',
+      rule2Title: 'General Rules, 2011',
+      rule2Desc:
+        'Standard specifications, testing procedures, permissible errors and fees.',
 
-      footerGovernment: 'Government of India',
-      footerDepartment: 'Department of Consumer Affairs',
+      rule3Title: 'Verification & Stamping',
+      rule3Desc:
+        'Mandatory periodic inspection, accuracy calibration and official stamping.',
 
-      quickLinks: 'Quick Links',
-      importantLinks: 'Important Links',
-      followUs: 'Follow Us',
+      rule4Title: 'Consumer Protection',
+      rule4Desc:
+        'Protects consumer rights and ensures correct quantity across all commercial goods.',
 
-      ministry: 'Ministry of Consumer Affairs',
-      rules: 'Rules 2011',
-      rti: 'RTI',
+      appBannerTitle: 'e-Maap Verify Android App',
 
-      lastUpdated: 'Last Updated: 10 Sep 2025',
-      copyright:
-        '© 2025 Department of Consumer Affairs, Government of India. All rights reserved.',
+      appBannerDesc:
+        'Access verification services, inspect instruments, and scan QR certificates from your mobile.',
+
+      appDownloadBtn: 'Download Android App',
+
+      trust1Title: 'Consumer Protection',
+      trust1Desc:
+        'Accurate weights and measures for a fair marketplace.',
+
+      trust2Title: 'Legal Compliance',
+      trust2Desc:
+        'Services aligned with the Legal Metrology framework.',
+
+      trust3Title: 'Transparent Digital Service',
+      trust3Desc:
+        'Simple, secure and technology-driven services.',
     },
 
     hi: {
-      government: 'भारत सरकार',
-      department: 'उपभोक्ता मामले विभाग',
-      indiaGov: 'भारत सरकार',
-      act: 'विधिक मापविज्ञान अधिनियम, 2009',
+      govIndia: 'भारत सरकार',
+      doca: 'उपभोक्ता मामले विभाग',
+      ministry:
+        'उपभोक्ता मामले, खाद्य एवं सार्वजनिक वितरण मंत्रालय',
 
       portalTitle: 'ई-माप वेरिफाई',
       portalSubtitle:
         'तौल एवं माप उपकरणों के लिए ऑनलाइन सत्यापन प्रणाली',
-      legalMetrology: 'विधिक मापविज्ञान | भारत सरकार',
 
-      helpline: 'हेल्पलाइन / प्रवेश पूछताछ',
+      legalMetrologyBadge:
+        'विधिक मापविज्ञान अधिनियम, 2009',
+
+      helpline: 'हेल्पलाइन / पूछताछ',
       phone: '+91 7708001234',
+
       login: 'लॉगिन',
       installApp: 'ऐप इंस्टॉल करें',
       downloadApp: 'एंड्रॉइड ऐप डाउनलोड करें',
 
-      home: 'होम',
-      about: 'हमारे बारे में',
-      services: 'सेवाएँ',
-      actsRules: 'अधिनियम एवं नियम',
-      downloads: 'डाउनलोड',
-      faqs: 'अक्सर पूछे जाने वाले प्रश्न',
-      contact: 'संपर्क करें',
-
-      heroTitle: 'सटीकता सुनिश्चित करें,',
+      heroTitle1: 'सटीकता सुनिश्चित करें,',
       heroTitle2: 'विश्वास का निर्माण करें',
+
       heroText:
         'ई-माप वेरिफाई, विधिक मापविज्ञान अधिनियम, 2009 एवं नियम, 2011 के अंतर्गत तौल एवं माप उपकरणों के सत्यापन के लिए एक ऑनलाइन प्लेटफॉर्म है।',
 
-      apply: 'सत्यापन के लिए आवेदन करें',
-      knowMore: 'अधिक जानकारी',
+      applyVerification:
+        'सत्यापन के लिए आवेदन करें',
 
-      updates: 'नवीनतम अपडेट एवं सूचनाएँ',
-      viewAll: 'सभी देखें',
+      verifyCertificate:
+        'प्रमाणपत्र सत्यापित करें',
 
-      latest1Title: '10 सितम्बर 2025',
-      latest1:
-        'तौल उपकरणों के ऑनलाइन सत्यापन के लिए नए दिशा-निर्देश जारी।',
+      service1Title:
+        'सत्यापन के लिए आवेदन',
 
-      latest2Title: '05 सितम्बर 2025',
-      latest2:
-        'विधिक मापविज्ञान नियम, 2011 के अंतर्गत संशोधित शुल्क संरचना लागू।',
+      service1Desc:
+        'तौल एवं माप उपकरणों के सत्यापन के लिए ऑनलाइन आवेदन जमा करें।',
 
-      latest3Title: '28 अगस्त 2025',
-      latest3:
-        '14 सितम्बर 2025 को सिस्टम रखरखाव निर्धारित है (10:00 AM – 12:00 PM)।',
+      service2Title:
+        'प्रमाणपत्र सत्यापित करें',
 
-      latest4Title: '20 अगस्त 2025',
-      latest4:
-        'विधिक मापविज्ञान अनुपालन पर सामान्य जागरूकता अभियान।',
+      service2Desc:
+        'प्रामाणिकता जांचने के लिए QR कोड स्कैन करें या विवरण दर्ज करें।',
 
-      servicesTitle: 'हमारी सेवाएँ',
-      servicesSubtitle:
-        'पारदर्शी एवं सटीक माप के लिए नागरिक-केंद्रित सेवाएँ।',
-      viewServices: 'सभी सेवाएँ देखें',
+      service3Title:
+        'आवेदन की स्थिति देखें',
 
-      applyVerification: 'सत्यापन के लिए आवेदन',
-      applyDescription:
-        'तौल एवं माप उपकरणों के सत्यापन के लिए आवेदन जमा करें।',
+      service3Desc:
+        'अपने सत्यापन आवेदन एवं निरीक्षण शेड्यूल की स्थिति को ट्रैक करें।',
 
-      verifyCertificate: 'प्रमाणपत्र सत्यापित करें',
-      verifyDescription:
-        'प्रामाणिकता सत्यापित करने के लिए QR कोड स्कैन करें या प्रमाणपत्र विवरण दर्ज करें।',
+      service4Title:
+        'पंजीकृत LMO / GATC',
 
-      checkStatus: 'आवेदन की स्थिति देखें',
-      statusDescription:
-        'अपने आवेदन एवं सत्यापन की स्थिति को ट्रैक करें।',
+      service4Desc:
+        'अधिकृत विधिक मापविज्ञान अधिकारियों एवं टेस्ट सेंटरों की जानकारी।',
 
-      registered: 'पंजीकृत LMO / GATC',
-      registeredDescription:
-        'अनुमोदित विधिक मापविज्ञान अधिकारियों एवं GATC की सूची देखें।',
+      aboutTitle:
+        'ई-माप वेरिफाई के बारे में',
 
-      actRules: 'अधिनियम एवं नियम',
-      actDescription:
-        'विधिक मापविज्ञान अधिनियम, 2009 एवं नियम, 2011 पढ़ें।',
+      aboutDesc:
+        'विधिक मापविज्ञान सेवाओं के लिए पारदर्शी एवं कुशल डिजिटल प्लेटफॉर्म, जो तौल व माप उपकरणों के सत्यापन और उपभोक्ता हितों की रक्षा करता है।',
 
-      download: 'डाउनलोड',
-      downloadDescription:
-        'फॉर्म, दिशा-निर्देश, मैनुअल एवं अन्य उपयोगी दस्तावेज प्राप्त करें।',
+      feat1Title:
+        'डिजिटल सत्यापन',
 
-      legalTitle: 'विधिक मापविज्ञान',
-      legalText:
-        'विधिक मापविज्ञान व्यापार में निष्पक्षता सुनिश्चित करता है और तौल एवं माप को नियंत्रित करके उपभोक्ताओं के अधिकारों की रक्षा करता है।',
+      feat1Desc:
+        'अधिनियम, 2009 के अंतर्गत संपूर्ण ऑनलाइन सत्यापन प्रक्रिया।',
 
-      fairTrade: 'निष्पक्ष व्यापार प्रथाएँ',
-      consumerProtection: 'उपभोक्ता संरक्षण',
-      accurate: 'सटीक माप',
-      quality: 'गुणवत्ता एवं विश्वास',
-      learnMore: 'अधिक जानें',
+      feat2Title:
+        'QR प्रमाणपत्र',
 
-      quickVerifyTitle: 'प्रमाणपत्र सत्यापित करें',
-      quickVerifyText:
-        'प्रामाणिकता सत्यापित करने के लिए प्रमाणपत्र संख्या या QR सत्यापन टोकन दर्ज करें।',
+      feat2Desc:
+        'त्वरित स्कैन सत्यापन के साथ छेड़छाड़-मुक्त डिजिटल प्रमाणपत्र।',
+
+      feat3Title:
+        'जीपीएस आधारित साक्ष्य',
+
+      feat3Desc:
+        'अधिकारियों द्वारा जियो-टैग एवं समय-अंकित निरीक्षण रिकॉर्ड।',
+
+      feat4Title:
+        'पारदर्शी कार्यप्रणाली',
+
+      feat4Desc:
+        'व्यापारियों, अधिकारियों और परीक्षण केंद्रों के बीच पारदर्शी ट्रैकिंग।',
+
+      quickVerifyTitle:
+        'त्वरित प्रमाणपत्र सत्यापन',
+
+      quickVerifyDesc:
+        'प्रामाणिकता सत्यापित करने के लिए प्रमाणपत्र संख्या या QR टोकन दर्ज करें।',
 
       searchPlaceholder:
-        'प्रमाणपत्र संख्या या QR सत्यापन टोकन दर्ज करें...',
-      verifyNow: 'अभी सत्यापित करें',
+        'प्रमाणपत्र संख्या या QR टोकन दर्ज करें...',
 
-      bottomConsumer: 'उपभोक्ता संरक्षण',
-      bottomConsumerText:
-        'निष्पक्ष बाजार के लिए सटीक तौल एवं माप सुनिश्चित करना।',
+      verifyNow:
+        'अभी सत्यापित करें',
 
-      bottomCompliance: 'कानूनी अनुपालन',
-      bottomComplianceText:
-        'विधिक मापविज्ञान अधिनियम, 2009 एवं नियम, 2011 के अनुसार।',
+      frameworkTitle:
+        'विधिक मापविज्ञान रूपरेखा',
 
-      bottomCitizen: 'नागरिकों के लिए सेवा',
-      bottomCitizenText:
-        'पारदर्शी, प्रभावी एवं तकनीक आधारित सेवाएँ।',
+      frameworkSubtitle:
+        'प्रमुख अधिनियम, नियम एवं सेवाएँ',
 
-      footerGovernment: 'भारत सरकार',
-      footerDepartment: 'उपभोक्ता मामले विभाग',
+      rule1Title:
+        'विधिक मापविज्ञान अधिनियम, 2009',
 
-      quickLinks: 'त्वरित लिंक',
-      importantLinks: 'महत्वपूर्ण लिंक',
-      followUs: 'हमें फॉलो करें',
+      rule1Desc:
+        'व्यापार और वाणिज्य में तौल एवं माप के वैधानिक मानकों का नियमन।',
 
-      ministry: 'उपभोक्ता मामले मंत्रालय',
-      rules: 'नियम 2011',
-      rti: 'RTI',
+      rule2Title:
+        'सामान्य नियम, 2011',
 
-      lastUpdated: 'अंतिम अपडेट: 10 सितम्बर 2025',
-      copyright:
-        '© 2025 उपभोक्ता मामले विभाग, भारत सरकार। सर्वाधिकार सुरक्षित।',
+      rule2Desc:
+        'सत्यापन प्रक्रिया, तकनीकी मानक, अनुमेय त्रुटियां और शुल्क संरचना।',
+
+      rule3Title:
+        'सत्यापन एवं स्टाम्पिंग',
+
+      rule3Desc:
+        'आवधिक निरीक्षण, उपकरण परीक्षण एवं अधिकृत सरकारी स्टाम्पिंग।',
+
+      rule4Title:
+        'उपभोक्ता संरक्षण',
+
+      rule4Desc:
+        'सटीक माप सुनिश्चित कर उपभोक्ताओं एवं व्यापारियों के अधिकारों की सुरक्षा।',
+
+      appBannerTitle:
+        'ई-माप वेरिफाई एंड्रॉइड ऐप',
+
+      appBannerDesc:
+        'सत्यापन सेवाओं, स्थल निरीक्षण एवं QR प्रमाणपत्र स्कैनिंग का उपयोग अपने मोबाइल से करें।',
+
+      appDownloadBtn:
+        'एंड्रॉइड ऐप डाउनलोड करें',
+
+      trust1Title:
+        'उपभोक्ता संरक्षण',
+
+      trust1Desc:
+        'निष्पक्ष बाजार के लिए सटीक तौल एवं माप।',
+
+      trust2Title:
+        'विधिक अनुपालन',
+
+      trust2Desc:
+        'विधिक मापविज्ञान अधिनियम एवं नियमों के अनुरूप सेवाएँ।',
+
+      trust3Title:
+        'पारदर्शी डिजिटल सेवा',
+
+      trust3Desc:
+        'सरल, सुरक्षित एवं तकनीक-आधारित सरकारी सेवाएँ।',
     },
   };
 
   const t = translations[language];
 
   /* =========================================================
-     FONT SIZE
+     FONT ACCESSIBILITY
   ========================================================= */
 
   const fontScale =
     fontSize === 'small'
-      ? 0.90
+      ? 0.9
       : fontSize === 'large'
         ? 1.12
         : 1;
 
   const increaseFont = () => {
-    setFontSize((current) => {
-      if (current === 'small') return 'normal';
-      if (current === 'normal') return 'large';
-      return 'large';
-    });
+    setFontSize((current) =>
+      current === 'small' ? 'normal' : 'large'
+    );
   };
 
   const decreaseFont = () => {
-    setFontSize((current) => {
-      if (current === 'large') return 'normal';
-      if (current === 'normal') return 'small';
-      return 'small';
-    });
+    setFontSize((current) =>
+      current === 'large' ? 'normal' : 'small'
+    );
   };
 
   const resetFont = () => {
@@ -339,10 +404,12 @@ export const LandingPage: React.FC = () => {
   };
 
   /* =========================================================
-     QUICK VERIFY
+     QUICK CERTIFICATE VERIFICATION
   ========================================================= */
 
-  const handleQuickVerify = (e: React.FormEvent) => {
+  const handleQuickVerify = (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
     const value = tokenInput.trim();
@@ -354,343 +421,292 @@ export const LandingPage: React.FC = () => {
     );
   };
 
-  /* =========================================================
-     NAVIGATION
-  ========================================================= */
-
-  const scrollToSection = (id: string) => {
-    setMobileMenu(false);
-
-    document.getElementById(id)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
-  };
-
-  /* =========================================================
-     RETURN
-  ========================================================= */
-
   return (
-    <div
-      className={`landing-page ${
-        language === 'hi' ? 'landing-hindi' : ''
-      }`}
-      style={{
-        ['--landing-scale' as string]: fontScale,
-      }}
-    >
-      {/* =====================================================
-          ACCESSIBILITY / FONT CSS
-      ===================================================== */}
+    <div className="landing-page-root w-full min-h-screen bg-white overflow-x-hidden">
+      <style>{`
+        .landing-page-root {
+          min-height: 100vh;
+          background: #ffffff;
+          color: #17365d;
+          overflow-x: hidden;
+          width: 100%;
+          max-width: 100%;
+        }
 
-      <style>
-        {`
-          .landing-page {
-            --primary: #123b6d;
-            --primary-dark: #0d2d53;
-            --accent: #07549a;
-            --border: #d8e6f3;
-            --text: #17365d;
-            --muted: #5d6b7a;
+        .landing-page-scale-wrapper {
+          --primary: #123b6d;
+          --primary-dark: #0d2d53;
+          --accent: #07549a;
+          --light-blue: #edf6ff;
+          --border: #d8e6f3;
+          --text: #17365d;
+          --muted: #5d6b7a;
 
-            min-height: 100vh;
-            background: #ffffff;
-            color: #243447;
-            overflow-x: hidden;
+          width: 100%;
+          max-width: 100%;
+          min-height: 100vh;
+          background: #ffffff;
+          color: #17365d;
+          zoom: var(--landing-scale, 1);
+          transform-origin: top center;
+          transition: zoom 0.15s ease-out;
 
-            font-family:
-              Inter,
-              "Noto Sans",
-              "Noto Sans Devanagari",
-              Arial,
-              sans-serif;
+          font-family:
+            Inter,
+            "Noto Sans",
+            "Noto Sans Devanagari",
+            Arial,
+            sans-serif;
+        }
 
-            font-size: calc(16px * var(--landing-scale));
+        @supports not (zoom: 1) {
+          .landing-page-scale-wrapper {
+            transform: scale(var(--landing-scale, 1));
+            transform-origin: top center;
+            width: calc(100% / var(--landing-scale, 1));
+          }
+        }
+
+        .landing-hindi {
+          font-family:
+            "Noto Sans Devanagari",
+            "Noto Sans",
+            Arial,
+            sans-serif;
+        }
+
+        .hero-marquee-image {
+          animation: heroFadeIn 0.7s ease-in-out;
+        }
+
+        @keyframes heroFadeIn {
+          from {
+            opacity: 0;
+            transform: scale(1.025);
           }
 
-          .landing-hindi {
-            font-family:
-              "Noto Sans Devanagari",
-              "Noto Sans",
-              Arial,
-              sans-serif;
-          }
-
-          /*
-            Font accessibility:
-            All normal text uses em/rem-independent inherited
-            sizing where possible. The scale is also applied
-            to Tailwind generated text elements.
-          */
-
-          .landing-page .landing-text {
-            font-size: 1em;
-          }
-
-          .landing-page .landing-small {
-            font-size: 0.82em;
-          }
-
-          .landing-page .landing-xs {
-            font-size: 0.75em;
-          }
-
-          .landing-page .landing-title {
-            font-size: 2.7em;
-          }
-
-          .landing-page .landing-section-title {
-            font-size: 1.55em;
-          }
-
-          .landing-page .landing-card-title {
-            font-size: 1em;
-          }
-
-          .landing-page button,
-          .landing-page a,
-          .landing-page input {
-            font-family: inherit;
-          }
-
-          .landing-page input::placeholder {
-            color: #718096;
+          to {
             opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .hero-progress {
+          animation: heroProgress 4.5s linear infinite;
+        }
+
+        @keyframes heroProgress {
+          from {
+            width: 0%;
           }
 
-          .landing-page .hide-scrollbar::-webkit-scrollbar {
-            display: none;
+          to {
+            width: 100%;
           }
+        }
 
-          .landing-page .hide-scrollbar {
-            scrollbar-width: none;
-          }
+        .hero-dot {
+          transition: all 0.25s ease;
+        }
+      `}</style>
 
-          @media (max-width: 640px) {
-            .landing-page {
-              font-size: calc(15px * var(--landing-scale));
-            }
-
-            .landing-page .landing-title {
-              font-size: 2.15em;
-            }
-
-            .landing-page .landing-section-title {
-              font-size: 1.35em;
-            }
-          }
-
-          @media (max-width: 380px) {
-            .landing-page {
-              font-size: calc(14px * var(--landing-scale));
-            }
-
-            .landing-page .landing-title {
-              font-size: 1.8em;
-            }
-          }
-        `}
-      </style>
+      <div
+        className={`landing-page-scale-wrapper ${
+          language === 'hi' ? 'landing-hindi' : ''
+        }`}
+        style={
+          {
+            '--landing-scale': fontScale,
+            zoom: fontScale,
+          } as React.CSSProperties
+        }
+      >
 
       {/* =====================================================
-          TOP GOVERNMENT BAR
+          1. GOVERNMENT TOP BAR
       ===================================================== */}
 
-      <div className="bg-[#123b6d] text-white border-b border-blue-900">
-        <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6">
-          <div className="min-h-[32px] py-1.5 flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-[#123b6d] text-white border-b border-blue-900/50">
+        <div className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-1.5 flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2 text-xs sm:text-sm">
 
-            <div className="flex items-center gap-2 landing-small min-w-0">
-              <span className="text-base shrink-0">🇮🇳</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 font-medium min-w-0">
+            <span className="text-sm sm:text-base select-none shrink-0" aria-hidden="true">🇮🇳</span>
+            <span className="font-semibold text-[11px] xs:text-xs sm:text-sm truncate sm:overflow-visible">
+              {t.govIndia}
+            </span>
+            <span className="hidden md:inline opacity-70">|</span>
+            <span className="hidden md:inline text-blue-100 text-xs sm:text-sm">
+              {t.doca}
+            </span>
+          </div>
 
-              <span className="font-bold whitespace-nowrap">
-                {t.government}
-              </span>
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-auto sm:ml-0">
 
-              <span className="opacity-60">|</span>
+            <div
+              className="flex items-center bg-[#0d2d53] rounded px-1 sm:px-1.5 py-0.5 border border-blue-400/20 text-[11px] sm:text-xs"
+              aria-label="Font Size Controls"
+            >
+              <button
+                type="button"
+                onClick={() => setFontSize('small')}
+                aria-pressed={fontSize === 'small'}
+                title="Decrease font size (A-)"
+                className={`px-1.5 py-0.5 rounded transition ${
+                  fontSize === 'small'
+                    ? 'bg-blue-600 font-bold text-white shadow-xs'
+                    : 'text-blue-200 hover:text-white'
+                }`}
+              >
+                A-
+              </button>
 
-              <span className="hidden sm:inline truncate">
-                {t.department}
-              </span>
+              <button
+                type="button"
+                onClick={() => setFontSize('normal')}
+                aria-pressed={fontSize === 'normal'}
+                title="Normal font size (A)"
+                className={`px-1.5 py-0.5 rounded transition ${
+                  fontSize === 'normal'
+                    ? 'bg-blue-600 font-bold text-white shadow-xs'
+                    : 'text-blue-200 hover:text-white'
+                }`}
+              >
+                A
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFontSize('large')}
+                aria-pressed={fontSize === 'large'}
+                title="Increase font size (A+)"
+                className={`px-1.5 py-0.5 rounded transition ${
+                  fontSize === 'large'
+                    ? 'bg-blue-600 font-bold text-white shadow-xs'
+                    : 'text-blue-200 hover:text-white'
+                }`}
+              >
+                A+
+              </button>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <div className="flex items-center text-[11px] sm:text-xs font-semibold bg-[#0d2d53] rounded border border-blue-400/20 overflow-hidden">
 
- {/* LANGUAGE + FONT SIZE CONTROLS */}
-<div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-2 sm:px-2.5 py-0.5 sm:py-1 transition ${
+                  language === 'en'
+                    ? 'bg-[#07549a] text-white'
+                    : 'text-blue-200 hover:text-white'
+                }`}
+              >
+                English
+              </button>
 
-  {/* LANGUAGE DROPDOWN */}
-  <div className="relative">
-    <select
-      value={language}
-      onChange={(e) =>
-        setLanguage(e.target.value as Language)
-      }
-      className="appearance-none bg-white/10 border border-white/25
-                 text-white rounded-md pl-3 pr-8 py-1.5
-                 text-xs font-semibold cursor-pointer
-                 focus:outline-none focus:ring-2 focus:ring-white/40"
-      aria-label="Select Language"
-    >
-      <option value="en" className="text-slate-800">
-        English
-      </option>
+              <button
+                type="button"
+                onClick={() => setLanguage('hi')}
+                className={`px-2 sm:px-2.5 py-0.5 sm:py-1 transition ${
+                  language === 'hi'
+                    ? 'bg-[#07549a] text-white'
+                    : 'text-blue-200 hover:text-white'
+                }`}
+              >
+                हिन्दी
+              </button>
 
-      <option value="hi" className="text-slate-800">
-        हिन्दी
-      </option>
-    </select>
-
-    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white text-xs">
-      ▾
-    </span>
-  </div>
-
-  {/* FONT SIZE DROPDOWN */}
-  <div className="relative">
-    <select
-      value={fontSize}
-      onChange={(e) =>
-        setFontSize(e.target.value as FontSize)
-      }
-      className="appearance-none bg-white/10 border border-white/25
-                 text-white rounded-md pl-3 pr-8 py-1.5
-                 text-xs font-semibold cursor-pointer
-                 focus:outline-none focus:ring-2 focus:ring-white/40"
-      aria-label="Select Font Size"
-    >
-      <option value="small" className="text-slate-800">
-        A-
-      </option>
-
-      <option value="normal" className="text-slate-800">
-        A 
-      </option>
-
-      <option value="large" className="text-slate-800">
-        A+
-      </option>
-    </select>
-
-    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white text-xs">
-      ▾
-    </span>
-  </div>
-
-</div>
             </div>
           </div>
         </div>
       </div>
 
-    
       {/* =====================================================
-          MAIN HEADER
+          2. MAIN GOVERNMENT HEADER
       ===================================================== */}
 
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-4">
+      <header className="bg-white border-b border-[#d8e6f3] sticky top-0 z-40 shadow-sm w-full">
 
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+        <div className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-2.5 sm:py-3.5">
 
-            {/* BRAND */}
+          <div className="flex items-center justify-between gap-2.5 sm:gap-4">
 
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="flex items-center gap-2.5 sm:gap-3.5 md:gap-4 min-w-0">
 
-              <div className="hidden sm:flex w-16 md:w-20 h-16 md:h-20 items-center justify-center shrink-0">
-                <Landmark className="w-12 md:w-16 h-12 md:h-16 text-slate-700" />
+              <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl bg-[#123b6d] text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Scale className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-
-              <div className="hidden sm:block h-14 w-px bg-[#c9d8e8]" />
 
               <div className="min-w-0">
 
-                <p className="font-extrabold text-[#123b6d] landing-text leading-tight">
-                  {t.department}
-                </p>
+                <div className="flex items-center gap-2">
 
-                <p className="font-bold text-[#123b6d] landing-small mt-1">
-                  {t.indiaGov}
-                </p>
+                  <h1 className="text-base sm:text-lg md:text-xl font-extrabold text-[#123b6d] tracking-tight truncate sm:overflow-visible">
+                    {t.portalTitle}
+                  </h1>
 
-              </div>
-
-              <div className="hidden md:block h-16 w-px bg-slate-300 ml-2" />
-
-              <div className="min-w-0">
-
-                <div className="flex items-center gap-1.5 sm:gap-2">
-
-                  <Scale className="w-6 h-6 sm:w-7 sm:h-7 text-[#2d9b49] shrink-0" />
-
-                  <span className="font-extrabold text-[#2d9b49] text-[1.5em] leading-none">
-                    e-Maap
+                  <span className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#07549a] border border-blue-200 rounded shrink-0">
+                    {t.legalMetrologyBadge}
                   </span>
-
-                  <span className="font-extrabold text-[#123b6d] text-[1.6em] leading-none">
-                    Verify
-                  </span>
-
 
                 </div>
 
-                <p className="font-bold text-[#123b6d] landing-small mt-1 max-w-[520px]">
-                  {t.portalSubtitle}
+                <p className="text-[11px] sm:text-xs md:text-[13px] text-slate-700 font-medium leading-tight truncate sm:overflow-visible">
+                  {t.doca}
                 </p>
 
-                <p className="text-slate-600 landing-xs mt-1">
-                  {t.legalMetrology}
+                <p className="text-[10px] sm:text-xs text-slate-500 hidden md:block truncate">
+                  {t.ministry} • {t.govIndia}
                 </p>
 
               </div>
             </div>
 
-            {/* RIGHT SIDE */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
 
-            <div className="flex items-center justify-between xl:justify-end gap-3 sm:gap-6">
+              <div className="hidden xl:flex items-center gap-2 text-right pr-2 border-r border-slate-200">
 
-              <div className="hidden lg:flex items-center gap-2 sm:gap-3">
-
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#123b6d] shrink-0">
-                  <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                  <Phone className="w-4 h-4 text-[#07549a]" />
                 </div>
 
                 <div>
-                  <p className="text-slate-600 font-medium landing-xs">
+
+                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                     {t.helpline}
                   </p>
 
-                  <p className="text-[#123b6d] font-extrabold landing-text">
+                  <p className="text-xs font-bold text-[#123b6d]">
                     {t.phone}
                   </p>
+
                 </div>
-
               </div>
 
-              {/* ACTION AREA: [ 📱 Install App ] [ Login ] */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <a
-                  href="/downloads/e-Maap-Verify.apk"
-                  download="e-Maap-Verify.apk"
-                  onClick={handleDownloadApk}
-                  aria-label="Download e-Maap Verify Android App"
-                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-white hover:bg-slate-50 text-[#123b6d] border border-[#123b6d]/30 hover:border-[#123b6d] font-bold rounded-md px-3 sm:px-4 py-2 sm:py-2.5 transition shadow-xs whitespace-nowrap landing-small focus:outline-none focus:ring-2 focus:ring-[#123b6d]/30"
-                >
-                  <Smartphone className="w-4 h-4 shrink-0 text-[#123b6d]" />
-                  <span className="sm:hidden">{t.installApp}</span>
-                  <span className="hidden sm:inline">{t.downloadApp}</span>
-                </a>
+              <a
+                href="/downloads/e-Maap-Verify.apk"
+                download="e-Maap-Verify.apk"
+                onClick={handleDownloadApk}
+                className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-white hover:bg-slate-50 text-[#123b6d] border border-[#123b6d]/30 hover:border-[#123b6d] font-bold rounded-lg px-2.5 sm:px-4 py-1.5 sm:py-2 transition shadow-sm text-xs sm:text-sm whitespace-nowrap min-h-[38px] sm:min-h-[42px]"
+              >
+                <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
 
-                <button
-                  type="button"
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-[#123b6d] hover:bg-[#0d2d53] text-white font-bold rounded-md px-3.5 sm:px-5 py-2 sm:py-2.5 transition shadow-sm whitespace-nowrap landing-small cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#123b6d]/30"
-                >
-                  <ShieldCheck className="w-4 h-4 shrink-0" />
-                  {t.login}
-                </button>
-              </div>
+                <span className="sm:hidden">
+                  {t.installApp}
+                </span>
+
+                <span className="hidden sm:inline">
+                  {t.downloadApp}
+                </span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setIsLoginModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-[#123b6d] hover:bg-[#0d2d53] text-white font-bold rounded-lg px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 transition shadow-sm text-xs sm:text-sm whitespace-nowrap min-h-[38px] sm:min-h-[42px]"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span>{t.login}</span>
+              </button>
 
             </div>
           </div>
@@ -698,709 +714,876 @@ export const LandingPage: React.FC = () => {
       </header>
 
       {/* =====================================================
-          MAIN
+          3. HERO SECTION
       ===================================================== */}
 
-      <main className="flex-1">
+      <section className="relative bg-gradient-to-b from-[#edf6ff] via-white to-white border-b border-[#d8e6f3] overflow-hidden w-full">
 
-        {/* ===================================================
-            HERO
-        =================================================== */}
-
-       <section
-  id="about"
-  className="relative overflow-hidden border-b border-slate-200"
->
-  {/* =====================================================
-      BACKGROUND IMAGE
-  ====================================================== */}
-
-  <img
-    src={heroImage}
-    alt="Legal-Metrology"
-    aria-hidden="true"
-    className="
-      absolute
-      inset-0
-      w-full
-      h-full
-      object-cover
-      object-center
-      pointer-events-none
-    "
-  />
-
-  {/* =====================================================
-      IMAGE OVERLAY
-      Left side text ko readable rakhne ke liye
-  ====================================================== */}
-
-  <div
-    className="
-      absolute
-      inset-0
-      bg-gradient-to-r
-      from-white/95
-      via-white/75
-      to-white/10
-    "
-  />
-
-  {/* =====================================================
-      HERO CONTENT
-  ====================================================== */}
-
-  <div
-    className="
-      relative
-      max-w-7xl
-      mx-auto
-      px-4
-      sm:px-6
-      lg:px-8
-      py-10
-      sm:py-14
-      lg:py-20
-    "
-  >
-    <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-
-      {/* ================= LEFT CONTENT ================= */}
-
-      <div className="max-w-2xl">
-
-        {/* ACT / RULE */}
+        {/* Dynamic Background Image */}
 
         <div
-          className="
-            inline-flex
-            items-center
-            gap-2
-            bg-white/95
-            backdrop-blur-sm
-            border
-            border-blue-200
-            rounded-full
-            px-3
-            sm:px-4
-            py-2
-            text-[#123b6d]
-            font-semibold
-            mb-5
-            shadow-sm
-            landing-small
-          "
-        >
-          <Scale className="w-4 h-4 shrink-0" />
+          aria-hidden="true"
+          className="absolute inset-0 opacity-[0.06] bg-cover bg-center pointer-events-none transition-all duration-700"
+          style={{
+            backgroundImage: `url(${heroImages[heroIndex].src})`,
+          }}
+        />
 
-          <span>
-            {t.act}
-          </span>
+        <div className="relative w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-8 sm:py-12 md:py-14 lg:py-16 2xl:py-20">
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center">
+
+            {/* =================================================
+                LEFT HERO CONTENT
+            ================================================= */}
+
+            <div className="lg:col-span-7 w-full min-w-0">
+
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white border border-[#d8e6f3] text-[#07549a] rounded-full px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold shadow-sm mb-3 sm:mb-4">
+
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+
+                <span className="truncate">
+                  {t.legalMetrologyBadge}
+                </span>
+
+              </div>
+
+              <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-4xl xl:text-5xl 2xl:text-6xl font-extrabold text-[#123b6d] tracking-tight leading-[1.18] mb-3 sm:mb-4 break-words">
+
+                {t.heroTitle1}{' '}
+
+                <span className="text-[#07549a] block sm:inline">
+                  {t.heroTitle2}
+                </span>
+
+              </h1>
+
+              <p className="text-xs sm:text-sm md:text-base text-slate-700 leading-relaxed max-w-2xl mb-6 sm:mb-8">
+                {t.heroText}
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+
+                <button
+                  type="button"
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 bg-[#123b6d] hover:bg-[#0d2d53] text-white font-bold rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 transition shadow-sm text-sm sm:text-base"
+                >
+                  <FileCheck2 className="w-5 h-5 shrink-0" />
+
+                  <span>
+                    {t.applyVerification}
+                  </span>
+                </button>
+
+                <Link
+                  to="/verify-certificate"
+                  className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-[#123b6d] border border-[#d8e6f3] hover:border-[#123b6d] font-bold rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 transition shadow-sm text-sm sm:text-base"
+                >
+                  <Search className="w-5 h-5 text-[#07549a] shrink-0" />
+
+                  <span>
+                    {t.verifyCertificate}
+                  </span>
+                </Link>
+
+              </div>
+
+              {/* Government Assurance */}
+
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 mt-6 sm:mt-8 text-xs text-slate-600">
+
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Government Digital Service</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#07549a] shrink-0" />
+                  <span>Secure Verification</span>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                RIGHT HERO IMAGE MARQUEE
+            ================================================= */}
+
+            <div className="lg:col-span-5 w-full flex justify-center mt-4 lg:mt-0">
+
+              <div className="relative w-full max-w-md sm:max-w-lg lg:max-w-md xl:max-w-lg 2xl:max-w-xl mx-auto">
+
+                {/* Image Card */}
+
+                <div className="relative bg-white border border-[#d8e6f3] rounded-2xl p-2 sm:p-2.5 shadow-lg overflow-hidden w-full">
+
+                  <div className="relative overflow-hidden rounded-xl bg-slate-100 w-full">
+
+                    <img
+                      key={heroImages[heroIndex].src}
+                      src={heroImages[heroIndex].src}
+                      alt={heroImages[heroIndex].alt}
+                      className="hero-marquee-image w-full h-[210px] xs:h-[250px] sm:h-[290px] md:h-[330px] lg:h-[310px] xl:h-[350px] 2xl:h-[390px] object-cover object-center"
+                    />
+
+                    {/* Gradient Overlay */}
+
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 via-black/20 to-transparent pointer-events-none" />
+
+                    {/* Image Label */}
+
+                    <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 flex items-center justify-between gap-2">
+
+                      <div className="flex items-center gap-1.5 sm:gap-2 bg-white/95 backdrop-blur-sm rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 shadow-sm min-w-0">
+
+                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
+
+                        <span className="text-[11px] sm:text-xs font-bold text-[#123b6d] truncate">
+                          Official Verification
+                        </span>
+
+                      </div>
+
+                      <div className="bg-[#123b6d]/95 text-white rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold shrink-0">
+                        {heroIndex + 1} / {heroImages.length}
+                      </div>
+
+                    </div>
+
+                    {/* Previous */}
+
+                    <button
+                      type="button"
+                      onClick={previousHero}
+                      aria-label="Previous hero image"
+                      className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 hover:bg-white text-[#123b6d] flex items-center justify-center shadow-md transition"
+                    >
+                      <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+
+                    {/* Next */}
+
+                    <button
+                      type="button"
+                      onClick={nextHero}
+                      aria-label="Next hero image"
+                      className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 hover:bg-white text-[#123b6d] flex items-center justify-center shadow-md transition"
+                    >
+                      <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+
+                  </div>
+
+                  {/* Image Information */}
+
+                  <div className="mt-2.5 sm:mt-3 px-2.5 sm:px-3 py-2 sm:py-2.5 bg-[#edf6ff] border border-blue-100 rounded-lg flex items-center justify-between gap-2">
+
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+
+                      <Scale className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#07549a] shrink-0" />
+
+                      <span className="font-semibold text-[#123b6d] text-xs sm:text-sm truncate">
+                        {heroImages[heroIndex].title}
+                      </span>
+
+                    </div>
+
+                    <span className="text-[#07549a] font-bold text-[11px] sm:text-xs shrink-0">
+                      {heroImages[heroIndex].tag}
+                    </span>
+
+                  </div>
+
+                  {/* Progress */}
+
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-200 overflow-hidden">
+
+                    <div
+                      key={heroIndex}
+                      className="hero-progress h-full bg-[#07549a]"
+                    />
+
+                  </div>
+
+                </div>
+
+                {/* Dots */}
+
+                <div className="flex justify-center items-center gap-2 mt-3.5 sm:mt-4">
+
+                  {heroImages.map((image, index) => (
+                    <button
+                      key={image.src}
+                      type="button"
+                      onClick={() => setHeroIndex(index)}
+                      aria-label={`Show hero image ${index + 1}`}
+                      className={`hero-dot rounded-full transition-all ${
+                        heroIndex === index
+                          ? 'w-6 sm:w-7 h-2 bg-[#123b6d]'
+                          : 'w-2 h-2 bg-slate-300 hover:bg-slate-400'
+                      }`}
+                    />
+                  ))}
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
         </div>
+      </section>
 
-        {/* TITLE */}
+      {/* =====================================================
+          4. QUICK SERVICE CARDS
+      ===================================================== */}
 
-        <h1
-          className="
-            landing-title
-            font-extrabold
-            text-[#123b6d]
-            leading-[1.08]
-            tracking-tight
-          "
-        >
-          {t.heroTitle}
-          <br />
-          {t.heroTitle2}
-        </h1>
+      <section className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12 -mt-5 sm:-mt-8 md:-mt-10 relative z-20">
 
-        {/* DESCRIPTION */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-5">
 
-        <p
-          className="
-            text-slate-700
-            max-w-xl
-            mt-5
-            leading-relaxed
-            landing-text
-          "
-        >
-          {t.heroText}
-        </p>
-
-        {/* BUTTONS */}
-
-        <div
-          className="
-            flex
-            flex-col
-            sm:flex-row
-            flex-wrap
-            gap-3
-            mt-7
-          "
-        >
-
-          {/* APPLY */}
+          {/* Card 1 */}
 
           <button
             type="button"
             onClick={() => setIsLoginModalOpen(true)}
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              bg-[#07549a]
-              hover:bg-[#063f73]
-              text-white
-              font-bold
-              rounded-md
-              px-5
-              py-3
-              shadow-sm
-              transition
-              landing-small
-              cursor-pointer
-            "
+            className="bg-white border border-blue-100 rounded-xl p-4 sm:p-5 hover:border-blue-300 hover:shadow-md transition text-left cursor-pointer group shadow-sm flex flex-col justify-between h-full min-w-0"
           >
-            {t.apply}
-
-            <ArrowRight className="w-4 h-4" />
-          </button>
-
-          {/* KNOW MORE */}
-
-          <button
-            type="button"
-            onClick={() => scrollToSection('services')}
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              bg-white/90
-              hover:bg-blue-50
-              border-2
-              border-[#07549a]
-              text-[#07549a]
-              font-bold
-              rounded-md
-              px-5
-              py-3
-              transition
-              landing-small
-            "
-          >
-            {t.knowMore}
-
-            <ArrowRight className="w-4 h-4" />
-          </button>
-
-        </div>
-
-      </div>
-
-      {/* ================= RIGHT SIDE ================= */}
-
-      <div
-        className="
-          hidden
-          lg:block
-          min-h-[280px]
-        "
-      />
-
-    </div>
-  </div>
-</section>
-        {/* ===================================================
-            LATEST UPDATES
-        =================================================== */}
-
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 mt-5">
-
-          <div className="border border-blue-100 rounded-xl bg-white shadow-sm overflow-hidden">
-
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-5 py-4 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-white">
-
-              <div className="flex items-center gap-3">
-
-                <div className="w-9 h-9 rounded-lg bg-[#123b6d] text-white flex items-center justify-center shrink-0">
-                  <Megaphone className="w-4 h-4" />
-                </div>
-
-                <h2 className="font-bold text-[#123b6d] landing-text">
-                  {t.updates}
-                </h2>
-
-              </div>
-
-              <button
-                type="button"
-                className="text-[#07549a] font-semibold landing-small sm:self-auto self-end"
-              >
-                {t.viewAll} →
-              </button>
-
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4">
-
-              {[
-                [t.latest1Title, t.latest1, '#1769aa'],
-                [t.latest2Title, t.latest2, '#138808'],
-                [t.latest3Title, t.latest3, '#f28c18'],
-                [t.latest4Title, t.latest4, '#1769aa'],
-              ].map(([date, text, dot], index) => (
-                <div
-                  key={date}
-                  className={`p-5 ${
-                    index > 0
-                      ? 'border-t sm:border-t lg:border-t-0 lg:border-l border-blue-100'
-                      : ''
-                  }`}
-                >
-
-                  <div className="flex gap-3">
-
-                    <span
-                      className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0"
-                      style={{
-                        backgroundColor: dot,
-                      }}
-                    />
-
-                    <div>
-
-                      <p className="font-semibold text-[#123b6d] landing-small">
-                        {date}
-                      </p>
-
-                      <p className="text-slate-600 mt-1 leading-relaxed landing-small">
-                        {text}
-                      </p>
-
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            SERVICES
-        =================================================== */}
-
-        <section
-          id="services"
-          className="max-w-7xl mx-auto px-4 sm:px-6 py-8"
-        >
-
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
 
             <div>
 
-              <h2 className="landing-section-title font-extrabold text-[#123b6d]">
-                {t.servicesTitle}
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-blue-50 text-[#07549a] group-hover:bg-[#07549a] group-hover:text-white transition flex items-center justify-center mb-3">
+                <FileCheck2 className="w-5 h-5 shrink-0" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-1.5 group-hover:text-[#07549a] break-words">
+                {t.service1Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.service1Desc}
+              </p>
+
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center text-xs font-bold text-[#07549a]">
+              <span>Proceed Online</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+
+          </button>
+
+          {/* Card 2 */}
+
+          <Link
+            to="/verify-certificate"
+            className="bg-white border border-blue-100 rounded-xl p-4 sm:p-5 hover:border-blue-300 hover:shadow-md transition text-left group shadow-sm flex flex-col justify-between h-full min-w-0"
+          >
+
+            <div>
+
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition flex items-center justify-center mb-3">
+                <Search className="w-5 h-5 shrink-0" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-1.5 group-hover:text-emerald-700 break-words">
+                {t.service2Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.service2Desc}
+              </p>
+
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center text-xs font-bold text-emerald-700">
+              <span>Verify QR / ID</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+
+          </Link>
+
+          {/* Card 3 */}
+
+          <button
+            type="button"
+            onClick={() => setIsLoginModalOpen(true)}
+            className="bg-white border border-blue-100 rounded-xl p-4 sm:p-5 hover:border-blue-300 hover:shadow-md transition text-left cursor-pointer group shadow-sm flex flex-col justify-between h-full min-w-0"
+          >
+
+            <div>
+
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-indigo-50 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition flex items-center justify-center mb-3">
+                <FileText className="w-5 h-5 shrink-0" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-1.5 group-hover:text-indigo-700 break-words">
+                {t.service3Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.service3Desc}
+              </p>
+
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center text-xs font-bold text-indigo-700">
+              <span>Track Schedule</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+
+          </button>
+
+          {/* Card 4 */}
+
+          <button
+            type="button"
+            onClick={() => setIsLoginModalOpen(true)}
+            className="bg-white border border-blue-100 rounded-xl p-4 sm:p-5 hover:border-blue-300 hover:shadow-md transition text-left cursor-pointer group shadow-sm flex flex-col justify-between h-full min-w-0"
+          >
+
+            <div>
+
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition flex items-center justify-center mb-3">
+                <Building2 className="w-5 h-5 shrink-0" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-1.5 group-hover:text-amber-700 break-words">
+                {t.service4Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.service4Desc}
+              </p>
+
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center text-xs font-bold text-amber-700">
+              <span>Officer Portal</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+
+          </button>
+
+        </div>
+      </section>
+
+      {/* =====================================================
+          5. ABOUT
+      ===================================================== */}
+
+      <section className="bg-[#edf6ff] border-y border-[#d8e6f3] mt-10 sm:mt-14 md:mt-16 py-10 sm:py-14 md:py-16 2xl:py-20 w-full">
+
+        <div className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12">
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center">
+
+            <div className="lg:col-span-7 w-full min-w-0">
+
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white border border-blue-200 text-[#07549a] rounded-full px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold shadow-sm mb-3">
+
+                <Scale className="w-3.5 h-3.5 shrink-0" />
+
+                <span className="truncate">
+                  {t.portalTitle}
+                </span>
+
+              </div>
+
+              <h2 className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-[#123b6d] tracking-tight mb-3 break-words">
+                {t.aboutTitle}
               </h2>
 
-              <p className="text-slate-600 mt-1 landing-small">
-                {t.servicesSubtitle}
+              <p className="text-slate-700 text-xs sm:text-sm md:text-base leading-relaxed mb-6 sm:mb-8">
+                {t.aboutDesc}
               </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+
+                {/* Feature 1 */}
+
+                <div className="bg-white border border-blue-100 rounded-xl p-3.5 sm:p-4 shadow-sm min-w-0 h-full">
+
+                  <div className="flex items-center gap-2.5 sm:gap-3 mb-2">
+
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-50 text-[#07549a] flex items-center justify-center shrink-0">
+                      <FileCheck2 className="w-4 h-4" />
+                    </div>
+
+                    <h3 className="font-bold text-[#123b6d] text-xs sm:text-sm truncate">
+                      {t.feat1Title}
+                    </h3>
+
+                  </div>
+
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    {t.feat1Desc}
+                  </p>
+
+                </div>
+
+                {/* Feature 2 */}
+
+                <div className="bg-white border border-blue-100 rounded-xl p-3.5 sm:p-4 shadow-sm min-w-0 h-full">
+
+                  <div className="flex items-center gap-2.5 sm:gap-3 mb-2">
+
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <QrCode className="w-4 h-4" />
+                    </div>
+
+                    <h3 className="font-bold text-[#123b6d] text-xs sm:text-sm truncate">
+                      {t.feat2Title}
+                    </h3>
+
+                  </div>
+
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    {t.feat2Desc}
+                  </p>
+
+                </div>
+
+                {/* Feature 3 */}
+
+                <div className="bg-white border border-blue-100 rounded-xl p-3.5 sm:p-4 shadow-sm min-w-0 h-full">
+
+                  <div className="flex items-center gap-2.5 sm:gap-3 mb-2">
+
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+
+                    <h3 className="font-bold text-[#123b6d] text-xs sm:text-sm truncate">
+                      {t.feat3Title}
+                    </h3>
+
+                  </div>
+
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    {t.feat3Desc}
+                  </p>
+
+                </div>
+
+                {/* Feature 4 */}
+
+                <div className="bg-white border border-blue-100 rounded-xl p-3.5 sm:p-4 shadow-sm min-w-0 h-full">
+
+                  <div className="flex items-center gap-2.5 sm:gap-3 mb-2">
+
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+
+                    <h3 className="font-bold text-[#123b6d] text-xs sm:text-sm truncate">
+                      {t.feat4Title}
+                    </h3>
+
+                  </div>
+
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    {t.feat4Desc}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* App Image */}
+
+            <div className="lg:col-span-5 flex justify-center w-full mt-4 lg:mt-0">
+
+              <div className="relative max-w-xs sm:max-w-sm md:max-w-md w-full bg-white border border-[#d8e6f3] rounded-2xl p-3.5 sm:p-4 shadow-md text-center mx-auto">
+
+                <img
+                  src={appImage}
+                  alt="e-Maap Verify Mobile System"
+                  className="w-full h-auto object-contain max-h-[260px] sm:max-h-[300px] md:max-h-[340px] mx-auto rounded-lg"
+                />
+
+                <div className="mt-3 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] sm:text-xs font-semibold text-[#123b6d]">
+                  Integrated Portal & Mobile Stamping System
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          6. QUICK CERTIFICATE VERIFICATION
+      ===================================================== */}
+
+      <section className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-10 sm:py-14 md:py-16 2xl:py-20">
+
+        <div className="bg-gradient-to-r from-[#edf6ff] via-white to-[#edf6ff] border border-[#d8e6f3] rounded-2xl p-5 sm:p-8 md:p-10 shadow-sm text-center max-w-3xl lg:max-w-4xl mx-auto w-full min-w-0">
+
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#123b6d] text-white flex items-center justify-center mx-auto mb-3 sm:mb-4 shrink-0 shadow-sm">
+            <Search className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+
+          <h2 className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-[#123b6d] mb-2 tracking-tight break-words">
+            {t.quickVerifyTitle}
+          </h2>
+
+          <p className="text-slate-600 text-xs sm:text-sm max-w-xl mx-auto mb-5 sm:mb-6">
+            {t.quickVerifyDesc}
+          </p>
+
+          <form
+            onSubmit={handleQuickVerify}
+            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-2xl mx-auto w-full"
+          >
+
+            <div className="relative w-full min-w-0">
+
+              <QrCode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+
+              <input
+                type="text"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                className="w-full min-w-0 h-11 sm:h-12 pl-10 sm:pl-11 pr-3 sm:pr-4 bg-white border border-[#d8e6f3] rounded-xl text-xs sm:text-sm text-[#17365d] placeholder-slate-400 focus:outline-none focus:border-[#123b6d] focus:ring-2 focus:ring-[#123b6d]/15 shadow-sm"
+              />
 
             </div>
 
             <button
-              type="button"
-              className="inline-flex items-center gap-2 text-[#07549a] font-bold landing-small"
+              type="submit"
+              className="w-full sm:w-auto min-h-[44px] h-11 sm:h-12 px-6 sm:px-7 bg-[#123b6d] hover:bg-[#0d2d53] text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-sm whitespace-nowrap shrink-0"
             >
-              {t.viewServices}
-              <ArrowRight className="w-4 h-4" />
+              <Search className="w-4 h-4 shrink-0" />
+
+              <span>
+                {t.verifyNow}
+              </span>
             </button>
 
-          </div>
+          </form>
 
-          <div className="grid lg:grid-cols-[1fr_300px] gap-5">
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-3 sm:mt-4">
+            Supports Certificate Numbers and cryptographic verification tokens.
+          </p>
 
-            {/* SERVICE GRID */}
-
-            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-
-              {/* 1 */}
-
-              <button
-                type="button"
-                onClick={() => setIsLoginModalOpen(true)}
-                className="group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white text-left cursor-pointer"
-              >
-
-                <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center mb-4">
-                  <FileCheck2 className="w-5 h-5" />
-                </div>
-
-                <h3 className="font-bold text-[#123b6d] landing-card-title">
-                  {t.applyVerification}
-                </h3>
-
-                <p className="text-slate-600 mt-2 leading-relaxed landing-small">
-                  {t.applyDescription}
-                </p>
-
-                <div className="mt-4 text-[#07549a] font-bold">
-                  →
-                </div>
-
-              </button>
-
-              {/* 2 */}
-
-              <Link
-                to="/verify-certificate"
-                className="group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white"
-              >
-
-                <div className="w-10 h-10 rounded-lg bg-green-600 text-white flex items-center justify-center mb-4">
-                  <Search className="w-5 h-5" />
-                </div>
-
-                <h3 className="font-bold text-[#123b6d] landing-card-title">
-                  {t.verifyCertificate}
-                </h3>
-
-                <p className="text-slate-600 mt-2 leading-relaxed landing-small">
-                  {t.verifyDescription}
-                </p>
-
-                <div className="mt-4 text-[#07549a] font-bold">
-                  →
-                </div>
-
-              </Link>
-
-              {/* 3 */}
-
-              <button
-                type="button"
-                onClick={() => setIsLoginModalOpen(true)}
-                className="group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white text-left cursor-pointer"
-              >
-
-                <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center mb-4">
-                  <QrCode className="w-5 h-5" />
-                </div>
-
-                <h3 className="font-bold text-[#123b6d] landing-card-title">
-                  {t.checkStatus}
-                </h3>
-
-                <p className="text-slate-600 mt-2 leading-relaxed landing-small">
-                  {t.statusDescription}
-                </p>
-
-                <div className="mt-4 text-[#07549a] font-bold">
-                  →
-                </div>
-
-              </button>
-
-              {/* 4 */}
-
-              <button
-                type="button"
-                className="text-left group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white"
-              >
-
-                <div className="w-10 h-10 rounded-lg bg-orange-500 text-white flex items-center justify-center mb-4">
-                  <Building2 className="w-5 h-5" />
-                </div>
-
-                <h3 className="font-bold text-[#123b6d] landing-card-title">
-                  {t.registered}
-                </h3>
-
-                <p className="text-slate-600 mt-2 leading-relaxed landing-small">
-                  {t.registeredDescription}
-                </p>
-
-                <div className="mt-4 text-[#07549a] font-bold">
-                  →
-                </div>
-
-              </button>
-
-              {/* 5 */}
-
-              <button
-                id="act-rules"
-                type="button"
-                className="text-left group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white"
-              >
-
-                <div className="w-10 h-10 rounded-lg bg-cyan-600 text-white flex items-center justify-center mb-4">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-
-                <h3 className="font-bold text-[#123b6d] landing-card-title">
-                  {t.actRules}
-                </h3>
-
-                <p className="text-slate-600 mt-2 leading-relaxed landing-small">
-                  {t.actDescription}
-                </p>
-
-                <div className="mt-4 text-[#07549a] font-bold">
-                  →
-                </div>
-
-              </button>
-
-              {/* 6 */}
-
-              <button
-                id="downloads"
-                type="button"
-                className="text-left group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white"
-              >
-
-                <div className="w-10 h-10 rounded-lg bg-pink-600 text-white flex items-center justify-center mb-4">
-                  <Download className="w-5 h-5" />
-                </div>
-
-                <h3 className="font-bold text-[#123b6d] landing-card-title">
-                  {t.download}
-                </h3>
-
-                <p className="text-slate-600 mt-2 leading-relaxed landing-small">
-                  {t.downloadDescription}
-                </p>
-
-                <div className="mt-4 text-[#07549a] font-bold">
-                  →
-                </div>
-
-              </button>
-
-            </div>
-
-            {/* LEGAL METROLOGY */}
-
-            <div className="rounded-xl bg-gradient-to-b from-[#edf6ff] to-[#f5faff] border border-blue-100 p-6">
-
-              <div className="w-12 h-12 rounded-full bg-white border border-blue-200 flex items-center justify-center text-[#123b6d] mb-4">
-                <Scale className="w-6 h-6" />
-              </div>
-
-              <h3 className="font-extrabold text-[#123b6d] landing-text">
-                {t.legalTitle}
-              </h3>
-
-              <p className="text-slate-700 leading-relaxed mt-4 landing-small">
-                {t.legalText}
-              </p>
-
-              <div className="space-y-3 mt-5">
-
-                {[
-                  t.fairTrade,
-                  t.consumerProtection,
-                  t.accurate,
-                  t.quality,
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-2 text-slate-700 landing-small"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                    {item}
-                  </div>
-                ))}
-
-              </div>
-
-              <Link
-                to="/verify-certificate"
-                className="mt-6 w-full inline-flex justify-center items-center gap-2 bg-[#07549a] hover:bg-[#063f73] text-white font-bold rounded-md py-3 transition landing-small"
-              >
-                {t.learnMore}
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            QUICK VERIFY
-        =================================================== */}
-
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
-
-          <div className="rounded-xl bg-[#f5f9fd] border border-blue-100 p-4 sm:p-5">
-
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-
-              <div className="flex items-center gap-3 lg:w-[35%]">
-
-                <div className="w-11 h-11 rounded-lg bg-[#123b6d] text-white flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-
-                <div>
-
-                  <h3 className="font-bold text-[#123b6d] landing-text">
-                    {t.quickVerifyTitle}
-                  </h3>
-
-                  <p className="text-slate-600 landing-small">
-                    {t.quickVerifyText}
-                  </p>
-
-                </div>
-              </div>
-
-              <form
-                onSubmit={handleQuickVerify}
-                className="flex-1 flex flex-col sm:flex-row gap-2"
-              >
-
-                <div className="relative flex-1">
-
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-
-                  <input
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    type="text"
-                    placeholder={t.searchPlaceholder}
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 text-slate-800 landing-small"
-                  />
-
-                </div>
-
-                <button
-                  type="submit"
-                  className="bg-[#07549a] hover:bg-[#063f73] text-white font-bold rounded-md px-6 py-3 flex items-center justify-center gap-2 transition landing-small"
-                >
-                  <QrCode className="w-4 h-4" />
-                  {t.verifyNow}
-                </button>
-
-              </form>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================================================
-            TRUST STRIP
-        =================================================== */}
-
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
-
-          <div className="grid md:grid-cols-3 border border-blue-100 rounded-xl overflow-hidden bg-[#f4f9ff]">
-
-            <div className="p-5 flex items-center gap-4 border-b md:border-b-0 md:border-r border-blue-100">
-
-              <ShieldCheck className="w-9 h-9 text-[#123b6d] shrink-0" />
-
-              <div>
-
-                <h4 className="font-bold text-[#123b6d] landing-small">
-                  {t.bottomConsumer}
-                </h4>
-
-                <p className="text-slate-600 mt-1 landing-xs">
-                  {t.bottomConsumerText}
-                </p>
-
-              </div>
-            </div>
-
-            <div className="p-5 flex items-center gap-4 border-b md:border-b-0 md:border-r border-blue-100">
-
-              <Scale className="w-9 h-9 text-[#123b6d] shrink-0" />
-
-              <div>
-
-                <h4 className="font-bold text-[#123b6d] landing-small">
-                  {t.bottomCompliance}
-                </h4>
-
-                <p className="text-slate-600 mt-1 landing-xs">
-                  {t.bottomComplianceText}
-                </p>
-
-              </div>
-            </div>
-
-            <div className="p-5 flex items-center gap-4">
-
-              <Users className="w-9 h-9 text-[#123b6d] shrink-0" />
-
-              <div>
-
-                <h4 className="font-bold text-[#123b6d] landing-small">
-                  {t.bottomCitizen}
-                </h4>
-
-                <p className="text-slate-600 mt-1 landing-xs">
-                  {t.bottomCitizenText}
-                </p>
-
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* Hidden anchors for navigation */}
-
-        <div id="faqs" className="h-0" />
-        <div id="contact" className="h-0" />
-
-      </main>
+        </div>
+      </section>
 
       {/* =====================================================
-          EXISTING GOVERNMENT FOOTER
+          7. LEGAL METROLOGY FRAMEWORK
       ===================================================== */}
 
-      {/* DOWNLOAD NOTIFICATION TOAST */}
+      <section className="bg-slate-50 border-y border-[#d8e6f3] py-10 sm:py-14 md:py-16 2xl:py-20 w-full">
+
+        <div className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12">
+
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white border border-slate-200 text-[#07549a] rounded-full px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold shadow-sm mb-2">
+
+              <BookOpen className="w-3.5 h-3.5 shrink-0" />
+
+              <span className="truncate">
+                {t.frameworkSubtitle}
+              </span>
+
+            </div>
+
+            <h2 className="text-xl xs:text-2xl sm:text-3xl font-extrabold text-[#123b6d] tracking-tight break-words">
+              {t.frameworkTitle}
+            </h2>
+
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-5">
+
+            {/* Rule 1 */}
+
+            <div className="bg-white border border-[#d8e6f3] rounded-xl p-4 sm:p-5 shadow-sm h-full flex flex-col justify-start min-w-0">
+
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-[#07549a] flex items-center justify-center mb-3 shrink-0">
+                <Scale className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-2 break-words">
+                {t.rule1Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.rule1Desc}
+              </p>
+
+            </div>
+
+            {/* Rule 2 */}
+
+            <div className="bg-white border border-[#d8e6f3] rounded-xl p-4 sm:p-5 shadow-sm h-full flex flex-col justify-start min-w-0">
+
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 shrink-0">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-2 break-words">
+                {t.rule2Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.rule2Desc}
+              </p>
+
+            </div>
+
+            {/* Rule 3 */}
+
+            <div className="bg-white border border-[#d8e6f3] rounded-xl p-4 sm:p-5 shadow-sm h-full flex flex-col justify-start min-w-0">
+
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 shrink-0">
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-2 break-words">
+                {t.rule3Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.rule3Desc}
+              </p>
+
+            </div>
+
+            {/* Rule 4 */}
+
+            <div className="bg-white border border-[#d8e6f3] rounded-xl p-4 sm:p-5 shadow-sm h-full flex flex-col justify-start min-w-0">
+
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mb-3 shrink-0">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+
+              <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-2 break-words">
+                {t.rule4Title}
+              </h3>
+
+              <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                {t.rule4Desc}
+              </p>
+
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          8. ANDROID APP
+      ===================================================== */}
+
+      <section className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12 py-10 sm:py-14 md:py-16 2xl:py-20">
+
+        <div className="bg-gradient-to-r from-[#123b6d] via-[#0d2d53] to-[#07549a] text-white rounded-2xl p-5 sm:p-8 md:p-10 shadow-lg relative overflow-hidden">
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center relative z-10">
+
+            <div className="lg:col-span-8 w-full min-w-0">
+
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white/10 text-blue-200 border border-white/20 rounded-full px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold mb-3">
+
+                <Smartphone className="w-3.5 h-3.5 shrink-0" />
+
+                <span className="truncate">
+                  e-Maap Verify Mobile
+                </span>
+
+              </div>
+
+              <h2 className="text-xl xs:text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 text-white break-words">
+                {t.appBannerTitle}
+              </h2>
+
+              <p className="text-blue-100 text-xs sm:text-sm md:text-base leading-relaxed max-w-xl mb-5 sm:mb-6">
+                {t.appBannerDesc}
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+
+                <a
+                  href="/downloads/e-Maap-Verify.apk"
+                  download="e-Maap-Verify.apk"
+                  onClick={handleDownloadApk}
+                  className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-[#123b6d] font-bold rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 transition shadow-sm text-sm sm:text-base"
+                >
+                  <Download className="w-5 h-5 text-[#123b6d] shrink-0" />
+
+                  <span>
+                    {t.appDownloadBtn}
+                  </span>
+                </a>
+
+                <span className="text-xs text-blue-200 text-center sm:text-left">
+                  Android APK • Version 1.0
+                </span>
+
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 flex justify-center lg:justify-end w-full mt-4 lg:mt-0">
+
+              <div className="w-32 h-32 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl bg-white/10 border border-white/20 flex flex-col items-center justify-center text-center p-3.5 sm:p-4 backdrop-blur-sm mx-auto lg:mr-0">
+
+                <Smartphone className="w-10 h-10 sm:w-12 sm:h-12 text-white mb-2 shrink-0" />
+
+                <span className="text-xs font-bold text-white tracking-wide">
+                  Direct APK Install
+                </span>
+
+                <span className="text-[10px] text-blue-200 mt-1">
+                  DoCA Official Portal
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          9. TRUST / BENEFITS
+      ===================================================== */}
+
+      <section className="bg-white border-t border-[#d8e6f3] py-10 sm:py-12 md:py-14 w-full">
+
+        <div className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto px-3.5 sm:px-6 lg:px-8 2xl:px-12">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
+
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-50 text-[#07549a] border border-blue-100 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+
+              <div className="min-w-0">
+
+                <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-1 break-words">
+                  {t.trust1Title}
+                </h3>
+
+                <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                  {t.trust1Desc}
+                </p>
+
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
+                <Scale className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+
+              <div className="min-w-0">
+
+                <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-1 break-words">
+                  {t.trust2Title}
+                </h3>
+
+                <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                  {t.trust2Desc}
+                </p>
+
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0 sm:col-span-2 md:col-span-1">
+
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+
+              <div className="min-w-0">
+
+                <h3 className="font-bold text-[#123b6d] text-sm sm:text-base mb-1 break-words">
+                  {t.trust3Title}
+                </h3>
+
+                <p className="text-slate-600 text-xs sm:text-[13px] leading-relaxed">
+                  {t.trust3Desc}
+                </p>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          10. GOVERNMENT FOOTER
+      ===================================================== */}
+
+      <GovFooter />
+
+      </div>
+
+      {/* =====================================================
+          DOWNLOAD TOAST
+      ===================================================== */}
+
       {downloadToast && (
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-[#123b6d] text-white px-4 py-3 rounded-lg shadow-xl border border-blue-400/30 text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+          className="fixed bottom-4 right-4 left-4 sm:left-auto sm:max-w-md z-50 flex items-center gap-3 bg-[#123b6d] text-white px-3.5 sm:px-4 py-3 rounded-xl shadow-2xl border border-blue-400/30 text-xs sm:text-sm"
         >
+
           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
             <Smartphone className="w-4 h-4 text-emerald-300" />
           </div>
-          <div>
-            <p className="font-semibold text-white">
+
+          <div className="min-w-0 flex-1">
+
+            <p className="font-semibold text-white truncate sm:overflow-visible">
               e-Maap Verify Android app download started.
             </p>
+
             <p className="text-[11px] text-blue-100">
               Check your browser downloads to complete installation.
             </p>
+
           </div>
+
           <button
             type="button"
             onClick={() => setDownloadToast(false)}
-            className="ml-2 p-1 text-blue-200 hover:text-white rounded transition cursor-pointer"
+            className="ml-2 p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-white/10 transition shrink-0"
             aria-label="Close notification"
           >
             <X className="w-4 h-4" />
           </button>
+
         </div>
       )}
+
+      {/* =====================================================
+          LOGIN MODAL
+      ===================================================== */}
 
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
       />
 
-      <GovFooter />
     </div>
   );
 };
