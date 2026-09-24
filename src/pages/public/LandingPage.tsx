@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GovFooter } from '../../components/layout/GovFooter';
+import { LoginModal } from '../../components/auth/LoginModal';
 import heroImage from './images/legal-metrology-hero.webp';
 import {
   Scale,
@@ -13,6 +14,7 @@ import {
   CheckCircle2,
   BookOpen,
   Download,
+  Smartphone,
   Users,
   Home,
   Landmark,
@@ -33,6 +35,15 @@ export const LandingPage: React.FC = () => {
   const [fontSize, setFontSize] = useState<FontSize>('normal');
   const [tokenInput, setTokenInput] = useState('');
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [downloadToast, setDownloadToast] = useState(false);
+
+  const handleDownloadApk = () => {
+    setDownloadToast(true);
+    setTimeout(() => {
+      setDownloadToast(false);
+    }, 4500);
+  };
 
   /* =========================================================
      TRANSLATIONS
@@ -53,6 +64,8 @@ export const LandingPage: React.FC = () => {
       helpline: 'Helpline / Admission Enquiry',
       phone: '+91 7708001234',
       login: 'Login',
+      installApp: 'Install App',
+      downloadApp: 'Download Android App',
 
       home: 'Home',
       about: 'About Us',
@@ -178,6 +191,8 @@ export const LandingPage: React.FC = () => {
       helpline: 'हेल्पलाइन / प्रवेश पूछताछ',
       phone: '+91 7708001234',
       login: 'लॉगिन',
+      installApp: 'ऐप इंस्टॉल करें',
+      downloadApp: 'एंड्रॉइड ऐप डाउनलोड करें',
 
       home: 'होम',
       about: 'हमारे बारे में',
@@ -633,9 +648,9 @@ export const LandingPage: React.FC = () => {
 
             {/* RIGHT SIDE */}
 
-            <div className="flex items-center justify-between xl:justify-end gap-4 sm:gap-6">
+            <div className="flex items-center justify-between xl:justify-end gap-3 sm:gap-6">
 
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="hidden lg:flex items-center gap-2 sm:gap-3">
 
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#123b6d] shrink-0">
                   <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -653,13 +668,29 @@ export const LandingPage: React.FC = () => {
 
               </div>
 
-              <Link
-                to="/login"
-                className="inline-flex items-center justify-center gap-2 bg-[#123b6d] hover:bg-[#0d2d53] text-white font-bold rounded-md px-4 sm:px-6 py-2.5 sm:py-3 transition shadow-sm whitespace-nowrap landing-small"
-              >
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                {t.login}
-              </Link>
+              {/* ACTION AREA: [ 📱 Install App ] [ Login ] */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <a
+                  href="/downloads/e-Maap-Verify.apk"
+                  download="e-Maap-Verify.apk"
+                  onClick={handleDownloadApk}
+                  aria-label="Download e-Maap Verify Android App"
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-white hover:bg-slate-50 text-[#123b6d] border border-[#123b6d]/30 hover:border-[#123b6d] font-bold rounded-md px-3 sm:px-4 py-2 sm:py-2.5 transition shadow-xs whitespace-nowrap landing-small focus:outline-none focus:ring-2 focus:ring-[#123b6d]/30"
+                >
+                  <Smartphone className="w-4 h-4 shrink-0 text-[#123b6d]" />
+                  <span className="sm:hidden">{t.installApp}</span>
+                  <span className="hidden sm:inline">{t.downloadApp}</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-[#123b6d] hover:bg-[#0d2d53] text-white font-bold rounded-md px-3.5 sm:px-5 py-2 sm:py-2.5 transition shadow-sm whitespace-nowrap landing-small cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#123b6d]/30"
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  {t.login}
+                </button>
+              </div>
 
             </div>
           </div>
@@ -812,8 +843,9 @@ export const LandingPage: React.FC = () => {
 
           {/* APPLY */}
 
-          <Link
-            to="/login"
+          <button
+            type="button"
+            onClick={() => setIsLoginModalOpen(true)}
             className="
               inline-flex
               items-center
@@ -829,12 +861,13 @@ export const LandingPage: React.FC = () => {
               shadow-sm
               transition
               landing-small
+              cursor-pointer
             "
           >
             {t.apply}
 
             <ArrowRight className="w-4 h-4" />
-          </Link>
+          </button>
 
           {/* KNOW MORE */}
 
@@ -998,9 +1031,10 @@ export const LandingPage: React.FC = () => {
 
               {/* 1 */}
 
-              <Link
-                to="/login"
-                className="group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white"
+              <button
+                type="button"
+                onClick={() => setIsLoginModalOpen(true)}
+                className="group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white text-left cursor-pointer"
               >
 
                 <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center mb-4">
@@ -1019,7 +1053,7 @@ export const LandingPage: React.FC = () => {
                   →
                 </div>
 
-              </Link>
+              </button>
 
               {/* 2 */}
 
@@ -1048,9 +1082,10 @@ export const LandingPage: React.FC = () => {
 
               {/* 3 */}
 
-              <Link
-                to="/login"
-                className="group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white"
+              <button
+                type="button"
+                onClick={() => setIsLoginModalOpen(true)}
+                className="group border border-blue-100 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition bg-white text-left cursor-pointer"
               >
 
                 <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center mb-4">
@@ -1069,7 +1104,7 @@ export const LandingPage: React.FC = () => {
                   →
                 </div>
 
-              </Link>
+              </button>
 
               {/* 4 */}
 
@@ -1330,6 +1365,40 @@ export const LandingPage: React.FC = () => {
       {/* =====================================================
           EXISTING GOVERNMENT FOOTER
       ===================================================== */}
+
+      {/* DOWNLOAD NOTIFICATION TOAST */}
+      {downloadToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-[#123b6d] text-white px-4 py-3 rounded-lg shadow-xl border border-blue-400/30 text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+            <Smartphone className="w-4 h-4 text-emerald-300" />
+          </div>
+          <div>
+            <p className="font-semibold text-white">
+              e-Maap Verify Android app download started.
+            </p>
+            <p className="text-[11px] text-blue-100">
+              Check your browser downloads to complete installation.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDownloadToast(false)}
+            className="ml-2 p-1 text-blue-200 hover:text-white rounded transition cursor-pointer"
+            aria-label="Close notification"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+      />
 
       <GovFooter />
     </div>

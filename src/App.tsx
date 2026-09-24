@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { RoleRoute } from './components/auth/RoleRoute';
@@ -146,6 +147,33 @@ const DashboardRedirect: React.FC = () => {
   return <Navigate to={targetPath} replace />;
 };
 
+// Root route: Landing Page for Web, Authentication Check & Redirect for Android Native App
+const RootRoute: React.FC = () => {
+  const isNative = Capacitor.isNativePlatform();
+  const { user, loading, getRoleRedirectPath } = useAuth();
+
+  // Android Native App: Splash -> Auth Check -> (Unauthenticated -> LoginPage, Authenticated -> Role Dashboard)
+  if (isNative) {
+    if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-white p-6">
+          <div className="max-w-md w-full">
+            <LoadingSkeleton rows={4} />
+          </div>
+        </div>
+      );
+    }
+    if (user && user.role) {
+      const targetPath = getRoleRedirectPath(user.role);
+      return <Navigate to={targetPath} replace />;
+    }
+    return <LoginPage />;
+  }
+
+  // Web Browser: Always show Landing Page directly at / without redirecting
+  return <LandingPage />;
+};
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -156,8 +184,10 @@ export default function App() {
             <React.Suspense fallback={<PageLoadingFallback />}>
             <Routes>
               {/* Public Portal Routes */}
-              <Route path="/" element={<LoginPage />} />
+              <Route path="/" element={<RootRoute />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<LoginPage initialMode="register" />} />
+              <Route path="/signup" element={<LoginPage initialMode="register" />} />
               <Route path="/portal" element={<LandingPage />} />
               <Route path="/verify-certificate" element={<VerifyCertificatePage />} />
 

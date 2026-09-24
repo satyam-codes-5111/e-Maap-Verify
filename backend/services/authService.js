@@ -148,52 +148,85 @@ export async function registerStakeholderUser({
   businessType,
   registeredAddress,
   contactPerson,
+  role,
   ipAddress,
   userAgent,
 }) {
+  // STRICT RULE: Reject any attempt to register an admin, super admin, or officer role
+  if (role && role !== USER_ROLES.BUSINESS_USER) {
+    throw ApiError.forbidden(
+      'Public registration is strictly permitted for Business Users only. Administrative and Officer accounts cannot be created publicly.'
+    );
+  }
+
   // Check if email already registered
-  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  const normalizedEmail = email.toLowerCase().trim();
+  const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
     throw ApiError.conflict('An account with this email address already exists.');
   }
 
-  // Check if trade license already registered
-  const existingStakeholder = await Stakeholder.findOne({ tradeLicenseNumber });
+  // Ensure unique trade license number
+  const finalTradeLicense = (tradeLicenseNumber && tradeLicenseNumber.trim())
+    ? tradeLicenseNumber.trim().toUpperCase()
+    : `TL-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+  const existingStakeholder = await Stakeholder.findOne({ tradeLicenseNumber: finalTradeLicense });
   if (existingStakeholder) {
     throw ApiError.conflict('A stakeholder with this trade license number is already registered.');
   }
 
-  // 1. Create User
+  // 1. Create User - STRICTLY set to BUSINESS_USER (never trust client role)
   const user = new User({
-    name,
-    email: email.toLowerCase(),
-    password,
-    phone,
-    role: USER_ROLES.BUSINESS_USER,
+    name: name.trim(),
+    email: normalizedEmail,
+    password, // Handled by existing User pre-save bcrypt hook (12 rounds)
+    phone: phone ? phone.trim() : undefined,
+    role: USER_ROLES.BUSINESS_USER, // HARD-CODED STRICT ENFORCEMENT
     isActive: true,
   });
 
   await user.save();
 
+  // Normalize businessType
+  let bType = (businessType || 'RETAILER').toUpperCase();
+  if (bType === 'RETAIL') bType = 'RETAILER';
+  const validBusinessTypes = [
+    'MANUFACTURER',
+    'DEALER',
+    'REPAIRER',
+    'PETROL_PUMP',
+    'RETAILER',
+    'INDUSTRIAL_WEIGHBRIDGE',
+    'JEWELER',
+    'OTHER',
+  ];
+  if (!validBusinessTypes.includes(bType)) {
+    bType = 'RETAILER';
+  }
+
+  // Safe defaults for address if partial
+  const address = {
+    street: registeredAddress?.street?.trim() || 'Main Market Road',
+    city: registeredAddress?.city?.trim() || 'District HQ',
+    district: registeredAddress?.district?.trim() || 'Central District',
+    state: registeredAddress?.state?.trim() || 'Delhi',
+    pincode: registeredAddress?.pincode?.trim() || '110001',
+  };
+
   // 2. Create Stakeholder Profile
   const stakeholder = new Stakeholder({
     user: user._id,
-    businessName,
-    tradeLicenseNumber,
-    gstNumber: gstNumber ? gstNumber.toUpperCase() : undefined,
-    panNumber: panNumber ? panNumber.toUpperCase() : undefined,
-    businessType: businessType || 'RETAILER',
-    registeredAddress: registeredAddress || {
-      street: 'Main Market Road',
-      city: 'District HQ',
-      district: 'Central',
-      state: 'Delhi',
-      pincode: '110001',
-    },
+    businessName: businessName.trim(),
+    tradeLicenseNumber: finalTradeLicense,
+    gstNumber: gstNumber ? gstNumber.trim().toUpperCase() : undefined,
+    panNumber: panNumber ? panNumber.trim().toUpperCase() : undefined,
+    businessType: bType,
+    registeredAddress: address,
     contactPerson: contactPerson || {
-      name,
-      phone: phone || 'N/A',
-      email: email.toLowerCase(),
+      name: name.trim(),
+      phone: phone ? phone.trim() : 'N/A',
+      email: normalizedEmail,
     },
   });
 
@@ -212,7 +245,7 @@ export async function registerStakeholderUser({
     entityId: stakeholder._id,
     ipAddress,
     userAgent,
-    metadata: { businessName, tradeLicenseNumber },
+    metadata: { businessName, tradeLicenseNumber: finalTradeLicense },
   });
 
   return {

@@ -12,9 +12,9 @@ router.route('/login')
   .post(authRateLimiter, validate(loginSchema), authController.login)
   .all((req, res, next) => next(ApiError.methodNotAllowed(`HTTP method ${req.method} is not allowed on /api/auth/login. Supported methods: POST.`)));
 
-router.route('/register-stakeholder')
+router.route(['/register-stakeholder', '/register', '/signup'])
   .post(authRateLimiter, validate(registerStakeholderSchema), authController.registerStakeholder)
-  .all((req, res, next) => next(ApiError.methodNotAllowed(`HTTP method ${req.method} is not allowed on /api/auth/register-stakeholder. Supported methods: POST.`)));
+  .all((req, res, next) => next(ApiError.methodNotAllowed(`HTTP method ${req.method} is not allowed on ${req.baseUrl}${req.path}. Supported methods: POST.`)));
 
 // Rate-limited sensitive endpoints for password/reset & OTP
 router.route('/forgot-password')

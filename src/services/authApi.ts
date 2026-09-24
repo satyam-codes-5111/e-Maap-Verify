@@ -6,6 +6,26 @@ let activeLoginPromise: {
   promise: Promise<ApiResponse<{ token: string; role?: string; user: any; stakeholder?: any }>>;
 } | null = null;
 
+export interface RegisterBusinessPayload {
+  name: string;
+  businessName: string;
+  email: string;
+  phone: string;
+  password: string;
+  tradeLicenseNumber?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  businessType?: string;
+  registeredAddress?: {
+    street?: string;
+    city?: string;
+    district?: string;
+    state?: string;
+    pincode?: string;
+  };
+  role?: string;
+}
+
 export const authApi = {
   login: async (credentials: { email: string; password: string; selectedRole?: string }) => {
     const dedupKey = `${credentials.email.toLowerCase().trim()}:${credentials.selectedRole || ''}`;
@@ -24,6 +44,14 @@ export const authApi = {
 
     activeLoginPromise = { key: dedupKey, promise };
     return promise;
+  },
+
+  register: async (payload: RegisterBusinessPayload) => {
+    const res = await api.post<ApiResponse<{ token: string; role?: string; user: any; stakeholder?: any }>>(
+      '/auth/register-stakeholder',
+      payload
+    );
+    return res.data;
   },
 
   getMe: async () => {
