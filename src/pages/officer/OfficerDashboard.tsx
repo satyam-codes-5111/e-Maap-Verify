@@ -305,6 +305,8 @@ export const OfficerDashboard: React.FC = () => {
           description="Verification schedules allotted for today"
           icon={CalendarDays}
           variant="teal"
+          to="/officer/schedules?status=SCHEDULED"
+          ariaLabel={`Today's Inspections: ${todayCount}. Click to view scheduled verifications.`}
           badge={todayCount > 0 ? { text: 'Active Duty', type: 'positive' } : undefined}
         />
         <StatCard
@@ -313,6 +315,8 @@ export const OfficerDashboard: React.FC = () => {
           description="Awaiting on-site calibration and testing"
           icon={ClipboardList}
           variant="amber"
+          to="/officer/inspections?status=IN_PROGRESS"
+          ariaLabel={`Pending Inspections: ${pendingCount}. Click to view in-progress inspections.`}
         />
         <StatCard
           title="Completed Verifications"
@@ -320,6 +324,8 @@ export const OfficerDashboard: React.FC = () => {
           description="Legally stamped & certified instruments"
           icon={CheckCircle2}
           variant="emerald"
+          to="/officer/certificates"
+          ariaLabel={`Completed Verifications: ${completedCount}. Click to view verified certificates.`}
         />
         <StatCard
           title="Rejection Verdicts"
@@ -327,6 +333,8 @@ export const OfficerDashboard: React.FC = () => {
           description="Failed MPE or defective instruments"
           icon={AlertCircle}
           variant="rose"
+          to="/officer/inspections?status=FAILED"
+          ariaLabel={`Rejection Verdicts: ${rejectedCount}. Click to view failed inspections.`}
         />
       </div>
 

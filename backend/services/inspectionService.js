@@ -1489,7 +1489,35 @@ export async function listInspections(query, user) {
   }
 
   if (query.status) {
-    filter.inspectionStatus = query.status;
+    if (query.status === 'FAILED') {
+      const failedCond = {
+        $or: [
+          { inspectionStatus: 'FAILED' },
+          { result: { $in: ['FAILED', 'REJECTED', 'FAIL'] } },
+        ],
+      };
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, failedCond];
+        delete filter.$or;
+      } else {
+        filter.$or = failedCond.$or;
+      }
+    } else if (query.status === 'PASSED') {
+      const passedCond = {
+        $or: [
+          { inspectionStatus: 'PASSED' },
+          { result: { $in: ['PASSED', 'VERIFIED', 'PASS'] } },
+        ],
+      };
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, passedCond];
+        delete filter.$or;
+      } else {
+        filter.$or = passedCond.$or;
+      }
+    } else {
+      filter.inspectionStatus = query.status;
+    }
   }
 
   if (query.result) {

@@ -27,7 +27,8 @@ router.get('/', certificateController.getCertificates);
 // Get certificate details by ID
 router.get('/:id', certificateController.getCertificateById);
 
-// Download Certificate PDF
+// Download Certificate PDF - Supports canonical /:id/pdf and /:id/download
+router.get('/:id/pdf', certificateController.downloadCertificatePdf);
 router.get('/:id/download', certificateController.downloadCertificatePdf);
 
 // Revoke Certificate (Admin only) - supports PATCH and POST

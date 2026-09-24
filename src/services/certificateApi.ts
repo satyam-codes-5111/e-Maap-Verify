@@ -31,37 +31,52 @@ export const certificateApi = {
 
   downloadPdfUrl: (id: string) => {
     const baseURL = getApiBaseUrl();
-    return `${baseURL}/certificates/${id}/download`;
+    return `${baseURL}/certificates/${id}/pdf`;
   },
 
   downloadCertificatePdf: async (id: string, customFilename?: string): Promise<void> => {
-    const response = await api.get(`/certificates/${id}/download`, {
-      responseType: 'blob',
-    });
+    try {
+      const response = await api.get(`/certificates/${id}/pdf`, {
+        responseType: 'blob',
+      });
 
-    // Determine filename
-    let filename = customFilename;
-    if (!filename) {
-      const disposition = response.headers['content-disposition'];
-      if (disposition && disposition.includes('filename=')) {
-        const matches = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-        if (matches != null && matches[1]) {
-          filename = matches[1].replace(/['"]/g, '');
+      // Determine filename
+      let filename = customFilename;
+      if (!filename) {
+        const disposition = response.headers['content-disposition'];
+        if (disposition && disposition.includes('filename=')) {
+          const matches = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (matches != null && matches[1]) {
+            filename = matches[1].replace(/['"]/g, '');
+          }
         }
       }
-    }
-    if (!filename) {
-      filename = `Verification_Certificate_${id}.pdf`;
-    }
+      if (!filename) {
+        filename = `Verification_Certificate_${id}.pdf`;
+      }
 
-    const blob = new Blob([response.data], { type: 'application/pdf' });
-    const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode?.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          if (json?.message) {
+            err.message = json.message;
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+      throw err;
+    }
   },
 };

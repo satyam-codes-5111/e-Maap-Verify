@@ -429,15 +429,35 @@ export const getApplications = asyncHandler(async (req, res) => {
 
   // Status filtering (accepts applicationStatus or status)
   const statusFilter = req.query.applicationStatus || req.query.status;
-  if (statusFilter) {
-    if (statusFilter === 'PENDING') {
+  if (statusFilter && statusFilter !== 'ALL') {
+    if (statusFilter === 'PENDING_QUEUE') {
       filter.currentStatus = {
         $in: [
           APPLICATION_STATUSES.SUBMITTED,
           APPLICATION_STATUSES.UNDER_REVIEW,
-          APPLICATION_STATUSES.SCHEDULED,
-          APPLICATION_STATUSES.INSPECTION,
         ],
+      };
+    } else if (statusFilter === 'PENDING') {
+      if (req.user.role === USER_ROLES.ADMIN || req.user.role === USER_ROLES.SUPER_ADMIN) {
+        filter.currentStatus = {
+          $in: [
+            APPLICATION_STATUSES.SUBMITTED,
+            APPLICATION_STATUSES.UNDER_REVIEW,
+          ],
+        };
+      } else {
+        filter.currentStatus = {
+          $in: [
+            APPLICATION_STATUSES.SUBMITTED,
+            APPLICATION_STATUSES.UNDER_REVIEW,
+            APPLICATION_STATUSES.SCHEDULED,
+            APPLICATION_STATUSES.INSPECTION,
+          ],
+        };
+      }
+    } else if (statusFilter.includes(',')) {
+      filter.currentStatus = {
+        $in: statusFilter.split(',').map((s) => s.trim()),
       };
     } else {
       filter.currentStatus = statusFilter;

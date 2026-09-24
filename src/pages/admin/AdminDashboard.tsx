@@ -165,6 +165,8 @@ export const AdminDashboard: React.FC = () => {
           description="Registered commercial traders"
           icon={Users}
           variant="blue"
+          to="/admin/stakeholders"
+          ariaLabel={`Stakeholders: ${totalStakeholders}. Click to view commercial stakeholders directory.`}
         />
         <StatCard
           title="Instruments"
@@ -172,6 +174,8 @@ export const AdminDashboard: React.FC = () => {
           description="Commercial devices in registry"
           icon={Cpu}
           variant="slate"
+          to="/admin/instruments"
+          ariaLabel={`Instruments: ${totalInstruments}. Click to view commercial instruments registry.`}
         />
         <StatCard
           title="Applications"
@@ -179,6 +183,8 @@ export const AdminDashboard: React.FC = () => {
           description="Verification requests submitted"
           icon={FileText}
           variant="indigo"
+          to="/admin/applications"
+          ariaLabel={`Applications: ${totalApplications}. Click to view all verification applications.`}
         />
         <StatCard
           title="Pending Queue"
@@ -186,6 +192,8 @@ export const AdminDashboard: React.FC = () => {
           description="Awaiting officer allotment"
           icon={Clock}
           variant="amber"
+          to="/admin/applications?status=PENDING"
+          ariaLabel={`Pending Queue: ${pendingApplications}. Click to view pending applications awaiting review.`}
           badge={pendingApplications > 0 ? { text: 'Active Review', type: 'warning' } : undefined}
         />
         <StatCard
@@ -194,6 +202,8 @@ export const AdminDashboard: React.FC = () => {
           description="Field verifications completed"
           icon={CheckCircle2}
           variant="emerald"
+          to="/admin/applications?status=VERIFIED"
+          ariaLabel={`Verifications: ${completedInspections}. Click to view verified applications.`}
         />
         <StatCard
           title="Statutory Fees"
@@ -201,6 +211,8 @@ export const AdminDashboard: React.FC = () => {
           description="Total treasury fees deposited"
           icon={IndianRupee}
           variant="teal"
+          to="/admin/reports"
+          ariaLabel={`Statutory Fees: ₹${revenueCollected.toLocaleString()}. Click to view statutory reports.`}
         />
       </div>
 

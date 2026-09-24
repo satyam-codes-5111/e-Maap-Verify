@@ -27,7 +27,8 @@ export async function generateCertificatePDF({
         fs.mkdirSync(certsDir, { recursive: true });
       }
 
-      const fileName = `${certificateNumber}.pdf`;
+      const safeCertNumber = String(certificateNumber || 'certificate').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `${safeCertNumber}.pdf`;
       const filePath = path.join(certsDir, fileName);
       const writeStream = fs.createWriteStream(filePath);
 

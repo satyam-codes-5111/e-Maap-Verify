@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { instrumentApi } from '../../services/instrumentApi';
 import { InstrumentItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
@@ -20,15 +21,50 @@ import {
 } from 'lucide-react';
 
 export const AdminInstrumentsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [instruments, setInstruments] = useState<InstrumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || 'ALL');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || searchParams.get('verificationStatus') || 'ALL');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // Sync state if URL searchParams change
+  useEffect(() => {
+    const qStatus = searchParams.get('status') || searchParams.get('verificationStatus') || 'ALL';
+    const qCat = searchParams.get('category') || 'ALL';
+    setStatusFilter(qStatus);
+    setCategoryFilter(qCat);
+    setPage(1);
+  }, [searchParams]);
+
+  const handleStatusFilterChange = (val: string) => {
+    setStatusFilter(val);
+    setPage(1);
+    const next = new URLSearchParams(searchParams);
+    if (val === 'ALL') {
+      next.delete('status');
+      next.delete('verificationStatus');
+    } else {
+      next.set('status', val);
+    }
+    setSearchParams(next);
+  };
+
+  const handleCategoryFilterChange = (val: string) => {
+    setCategoryFilter(val);
+    setPage(1);
+    const next = new URLSearchParams(searchParams);
+    if (val === 'ALL') {
+      next.delete('category');
+    } else {
+      next.set('category', val);
+    }
+    setSearchParams(next);
+  };
 
   const fetchInstruments = useCallback(async () => {
     setLoading(true);
@@ -36,7 +72,10 @@ export const AdminInstrumentsPage: React.FC = () => {
       const params: any = { page, limit: 10 };
       if (search) params.search = search;
       if (categoryFilter !== 'ALL') params.category = categoryFilter;
-      if (statusFilter !== 'ALL') params.verificationStatus = statusFilter;
+      if (statusFilter !== 'ALL') {
+        params.status = statusFilter;
+        params.verificationStatus = statusFilter;
+      }
 
       const res = await instrumentApi.getInstruments(params);
       if (res.success && res.data) {
@@ -146,60 +185,89 @@ export const AdminInstrumentsPage: React.FC = () => {
         ]}
       />
 
-      <div className="bg-white p-4 rounded-xl border border-[#D9E2EC] shadow-xs flex flex-col sm:flex-row items-center gap-3 justify-between">
-        <SearchBar
-          value={search}
-          onChange={(val) => {
-            setSearch(val);
-            setPage(1);
-          }}
-          placeholder="Search serial number, model, stakeholder..."
-        />
+      <div className="bg-white p-4 rounded-xl border border-[#D9E2EC] shadow-xs flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
+          <SearchBar
+            value={search}
+            onChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            placeholder="Search serial number, model, stakeholder..."
+          />
 
-        <FilterPanel
-          filters={[
-            {
-              key: 'status',
-              label: 'Verification Status',
-              value: statusFilter,
-              onChange: (val) => {
-                setStatusFilter(val);
-                setPage(1);
+          <FilterPanel
+            filters={[
+              {
+                key: 'status',
+                label: 'Verification Status',
+                value: statusFilter,
+                onChange: (val) => handleStatusFilterChange(val),
+                options: [
+                  { label: 'All Statuses', value: 'ALL' },
+                  { label: 'Verified', value: 'VERIFIED' },
+                  { label: 'Expiring Soon', value: 'EXPIRING_SOON' },
+                  { label: 'Expired', value: 'EXPIRED' },
+                  { label: 'Unverified', value: 'UNVERIFIED' },
+                ],
               },
-              options: [
-                { label: 'All Statuses', value: 'ALL' },
-                { label: 'Verified', value: 'VERIFIED' },
-                { label: 'Expiring Soon', value: 'EXPIRING_SOON' },
-                { label: 'Expired', value: 'EXPIRED' },
-                { label: 'Unverified', value: 'UNVERIFIED' },
-              ],
-            },
-            {
-              key: 'category',
-              label: 'Category',
-              value: categoryFilter,
-              onChange: (val) => {
-                setCategoryFilter(val);
-                setPage(1);
+              {
+                key: 'category',
+                label: 'Category',
+                value: categoryFilter,
+                onChange: (val) => handleCategoryFilterChange(val),
+                options: [
+                  { label: 'All Categories', value: 'ALL' },
+                  { label: 'Non-Automatic Weighing', value: 'NON_AUTOMATIC_WEIGHING_INSTRUMENT' },
+                  { label: 'Automatic Weighing', value: 'AUTOMATIC_WEIGHING_INSTRUMENT' },
+                  { label: 'Linear Measure', value: 'LINEAR_MEASURE' },
+                  { label: 'Capacity Measure', value: 'CAPACITY_MEASURE' },
+                  { label: 'Fuel Dispensing Unit', value: 'FUEL_DISPENSER' },
+                  { label: 'Weighbridge', value: 'WEIGHBRIDGE' },
+                ],
               },
-              options: [
-                { label: 'All Categories', value: 'ALL' },
-                { label: 'Non-Automatic Weighing', value: 'NON_AUTOMATIC_WEIGHING_INSTRUMENT' },
-                { label: 'Automatic Weighing', value: 'AUTOMATIC_WEIGHING_INSTRUMENT' },
-                { label: 'Linear Measure', value: 'LINEAR_MEASURE' },
-                { label: 'Capacity Measure', value: 'CAPACITY_MEASURE' },
-                { label: 'Fuel Dispensing Unit', value: 'FUEL_DISPENSER' },
-                { label: 'Weighbridge', value: 'WEIGHBRIDGE' },
-              ],
-            },
-          ]}
-          onReset={() => {
-            setStatusFilter('ALL');
-            setCategoryFilter('ALL');
-            setSearch('');
-            setPage(1);
-          }}
-        />
+            ]}
+            onReset={() => {
+              handleStatusFilterChange('ALL');
+              handleCategoryFilterChange('ALL');
+              setSearch('');
+            }}
+          />
+        </div>
+
+        {(statusFilter !== 'ALL' || categoryFilter !== 'ALL') && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs flex-wrap">
+            <span className="font-semibold text-slate-500">Active Filters:</span>
+            {statusFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+                <span>Status: {statusFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => handleStatusFilterChange('ALL')}
+                  className="hover:text-teal-950 font-bold ml-0.5 text-sm leading-none cursor-pointer"
+                  aria-label="Clear status filter"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {categoryFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                <span>Category: {categoryFilter.replace(/_/g, ' ')}</span>
+                <button
+                  type="button"
+                  onClick={() => handleCategoryFilterChange('ALL')}
+                  className="hover:text-blue-950 font-bold ml-0.5 text-sm leading-none cursor-pointer"
+                  aria-label="Clear category filter"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600">Showing {totalRecords} instrument(s)</span>
+          </div>
+        )}
       </div>
 
       <DataTable

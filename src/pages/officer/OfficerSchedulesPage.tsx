@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { scheduleApi } from '../../services/scheduleApi';
 import { ScheduleItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
@@ -26,6 +26,7 @@ import {
 
 export const OfficerSchedulesPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const canSchedule = isAdmin || user?.role === 'LEGAL_METROLOGY_OFFICER';
@@ -33,9 +34,26 @@ export const OfficerSchedulesPage: React.FC = () => {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // Sync state if URL query params change
+  useEffect(() => {
+    const qStatus = searchParams.get('status') || 'ALL';
+    setStatusFilter(qStatus);
+  }, [searchParams]);
+
+  const handleStatusFilterChange = (val: string) => {
+    setStatusFilter(val);
+    const next = new URLSearchParams(searchParams);
+    if (val === 'ALL') {
+      next.delete('status');
+    } else {
+      next.set('status', val);
+    }
+    setSearchParams(next);
+  };
 
   // New verification schedule modal state
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -426,40 +444,61 @@ export const OfficerSchedulesPage: React.FC = () => {
       />
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <FilterPanel
-          filters={[
-            {
-              key: 'status',
-              label: 'Schedule Status',
-              value: statusFilter,
-              onChange: (val) => setStatusFilter(val),
-              options: [
-                { label: 'All Statuses', value: 'ALL' },
-                { label: 'Scheduled', value: 'SCHEDULED' },
-                { label: 'Rescheduled', value: 'RESCHEDULED' },
-                { label: 'In Progress', value: 'IN_PROGRESS' },
-                { label: 'Completed', value: 'COMPLETED' },
-                { label: 'Cancelled', value: 'CANCELLED' },
-              ],
-            },
-          ]}
-          onReset={() => {
-            setStatusFilter('ALL');
-            setSearchQuery('');
-          }}
-        />
-
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search application or premise..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <FilterPanel
+            filters={[
+              {
+                key: 'status',
+                label: 'Schedule Status',
+                value: statusFilter,
+                onChange: (val) => handleStatusFilterChange(val),
+                options: [
+                  { label: 'All Statuses', value: 'ALL' },
+                  { label: 'Scheduled', value: 'SCHEDULED' },
+                  { label: 'Rescheduled', value: 'RESCHEDULED' },
+                  { label: 'In Progress', value: 'IN_PROGRESS' },
+                  { label: 'Completed', value: 'COMPLETED' },
+                  { label: 'Cancelled', value: 'CANCELLED' },
+                ],
+              },
+            ]}
+            onReset={() => {
+              handleStatusFilterChange('ALL');
+              setSearchQuery('');
+            }}
           />
+
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search application or premise..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition"
+            />
+          </div>
         </div>
+
+        {statusFilter !== 'ALL' && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+            <span className="font-semibold text-slate-500">Active Filter:</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+              <span>Status: {statusFilter}</span>
+              <button
+                type="button"
+                onClick={() => handleStatusFilterChange('ALL')}
+                className="hover:text-teal-950 font-bold ml-0.5 text-sm leading-none cursor-pointer"
+                aria-label="Clear status filter"
+              >
+                ×
+              </button>
+            </span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600">Showing {filteredSchedules.length} schedule(s)</span>
+          </div>
+        )}
       </div>
 
       {/* Main Content Area */}

@@ -1,699 +1,433 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../context/AuthContext';
-import heroImage from './images/legal-metrology-hero.webp';
-
-import { getErrorMessage } from '../../services/api';
 import { UserRole } from '../../types';
 import {
   Scale,
-  Lock,
-  Mail,
   AlertCircle,
-  ArrowRight,
-  ShieldCheck,
-  Users,
+  Mail,
+  Lock,
   Eye,
   EyeOff,
   LogIn,
   QrCode,
-  FileText,
-  UserCheck,
-  Award,
-  MapPin,
-  Building2,
-  CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react';
+
+interface RoleOption {
+  id: UserRole;
+  title: string;
+  subtitle: string;
+}
+
+const ROLE_CARDS: RoleOption[] = [
+  {
+    id: 'BUSINESS_USER',
+    title: 'Business Trader / Applicant',
+    subtitle: 'Apply for verification, track applications, and download certificates',
+  },
+  {
+    id: 'LEGAL_METROLOGY_OFFICER',
+    title: 'Legal Metrology Officer (LMO)',
+    subtitle: 'Review applications, conduct inspections, and issue certificates',
+  },
+  {
+    id: 'FIELD_VERIFICATION_OFFICER',
+    title: 'Field Verification Officer',
+    subtitle: 'On-site verification and stamping inspections',
+  },
+  {
+    id: 'GATC_OFFICER',
+    title: 'GATC Officer',
+    subtitle: 'Government Approved Test Centre inspection & verification',
+  },
+  {
+    id: 'ADMIN',
+    title: 'Portal Administrator',
+    subtitle: 'Manage portal configurations, users, and statewide analytics',
+  },
+  {
+    id: 'SUPER_ADMIN',
+    title: 'Super Administrator',
+    subtitle: 'Full system administration and national oversight',
+  },
+];
 
 interface LoginFormInputs {
   email: string;
   password: string;
 }
 
-interface RoleCardOption {
-  id: UserRole;
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-}
-
-const ROLE_CARDS: RoleCardOption[] = [
-  {
-    id: 'SUPER_ADMIN',
-    title: 'Super Admin',
-    subtitle: 'Central / Apex Admin',
-    icon: <ShieldCheck className="w-5 h-5 text-[#07549a]" />,
-  },
-  {
-    id: 'ADMIN',
-    title: 'Admin',
-    subtitle: 'State / District Admin',
-    icon: <Users className="w-5 h-5 text-[#07549a]" />,
-  },
-  {
-    id: 'LEGAL_METROLOGY_OFFICER',
-    title: 'Legal Metrology Officer',
-    subtitle: 'Verification & Sealing',
-    icon: <Scale className="w-5 h-5 text-[#07549a]" />,
-  },
-  {
-    id: 'FIELD_VERIFICATION_OFFICER',
-    title: 'Field Verification Officer',
-    subtitle: 'Physical Verification',
-    icon: <UserCheck className="w-5 h-5 text-[#07549a]" />,
-  },
-  {
-    id: 'GATC_OFFICER',
-    title: 'GATC Officer',
-    subtitle: 'Testing & Calibration',
-    icon: <Award className="w-5 h-5 text-[#07549a]" />,
-  },
-  {
-    id: 'BUSINESS_USER',
-    title: 'Business User',
-    subtitle: 'Applicant / Trader',
-    icon: <Building2 className="w-5 h-5 text-[#07549a]" />,
-  },
-];
-
 export const LoginPage: React.FC = () => {
-  const { user, login, getRoleRedirectPath, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { login, getRoleRedirectPath } = useAuth();
 
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const isSubmittingRef = React.useRef(false);
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  // If already authenticated, redirect immediately to the user's role dashboard
-  useEffect(() => {
-    if (!loading && user && user.role) {
-      const destination = getRoleRedirectPath(user.role);
-      if (destination && destination !== '/login') {
-        navigate(destination, { replace: true });
-      }
-    }
-  }, [user, loading, getRoleRedirectPath, navigate]);
-
-  // Prefetch target dashboard bundle during idle/selection time to eliminate post-login chunk latency
-  const prefetchDashboard = (role: UserRole | '') => {
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
-      import('../admin/AdminDashboard');
-    } else if (
-      role === 'LEGAL_METROLOGY_OFFICER' ||
-      role === 'FIELD_VERIFICATION_OFFICER' ||
-      role === 'GATC_OFFICER'
-    ) {
-      import('../officer/OfficerDashboard');
-    } else if (role === 'BUSINESS_USER') {
-      import('../applicant/ApplicantDashboard');
-    }
-  };
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
-  } = useForm<LoginFormInputs>({
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
+  } = useForm<LoginFormInputs>();
 
   const handleRoleChange = (role: UserRole | '') => {
     setSelectedRole(role);
-    setServerError(null);
-    if (role) {
-      prefetchDashboard(role);
+  };
+
+  const prefetchDashboard = (role: UserRole) => {
+    try {
+      if (role === 'BUSINESS_USER') {
+        import('../applicant/ApplicantDashboard');
+      } else if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
+        import('../admin/AdminDashboard');
+      } else {
+        import('../officer/OfficerDashboard');
+      }
+    } catch {
+      // Best-effort prefetch
     }
   };
 
   const onSubmit = async (data: LoginFormInputs) => {
-    if (submitting || isSubmittingRef.current) return;
-    setServerError(null);
-
-    if (!selectedRole) {
-      setServerError('Please select your role.');
-      return;
-    }
-
-    isSubmittingRef.current = true;
     setSubmitting(true);
-
+    setServerError(null);
     try {
-      const authUser = await login(data.email, data.password, selectedRole);
-
-      if (authUser?.role !== selectedRole) {
-        setServerError('Selected role does not match this account.');
-        return;
-      }
-
-      const roleDefault = getRoleRedirectPath(authUser?.role);
-      const requested = (location.state as any)?.from?.pathname;
-
-      let destination = roleDefault;
-
-      if (
-        requested &&
-        typeof requested === 'string' &&
-        !['/login', '/', '/dashboard'].includes(requested)
-      ) {
-        if (
-          (authUser.role === 'BUSINESS_USER' &&
-            requested.startsWith('/applicant')) ||
-          (
-            [
-              'LEGAL_METROLOGY_OFFICER',
-              'FIELD_VERIFICATION_OFFICER',
-              'GATC_OFFICER',
-            ].includes(authUser.role) &&
-            requested.startsWith('/officer')
-          ) ||
-          (
-            ['SUPER_ADMIN', 'ADMIN'].includes(authUser.role) &&
-            (
-              requested.startsWith('/admin') ||
-              requested.startsWith('/officer') ||
-              requested.startsWith('/applicant')
-            )
-          )
-        ) {
-          destination = requested;
-        }
-      }
-
-      navigate(destination, { replace: true });
-    } catch (err: unknown) {
-      setServerError(getErrorMessage(err));
+      const loggedInUser = await login(
+        data.email.trim(),
+        data.password,
+        selectedRole ? (selectedRole as UserRole) : undefined
+      );
+      const from = (location.state as any)?.from?.pathname || getRoleRedirectPath(loggedInUser.role);
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Login failed. Please check your credentials.';
+      setServerError(msg);
     } finally {
-      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f4f8fc] text-[#102a4c] flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-[#f5f7fa] text-[#102a4c] flex flex-col">
+      {/* TOP BAR */}
+      <div className="bg-[#123b6d] text-white">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between text-xs sm:text-sm">
+          <span>🇮🇳 Government of India</span>
 
-      {/* TOP GOVERNMENT BAR */}
-      <div className="bg-[#07366b] text-white">
-        
-
-        <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base sm:text-lg">🇮🇳</span>
-
-            <span className="hidden sm:inline text-white/60">|</span>
-
-            <span className="hidden sm:inline text-xs sm:text-sm font-medium">
-              Government of India
-            </span>
-          </div>
+          <span className="hidden sm:block">
+            e-Maap Verify
+          </span>
         </div>
       </div>
 
-      {/* GOVERNMENT IDENTITY HEADER */}
-      <div className="h-auto w-full">
-      
-      <header className="bg-white border-b border-slate-200 ">
-        
-        <div className="w-full max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-5">
-          <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-5">
-
-            {/* LEFT */}
-            <div className="flex items-center gap-3 sm:gap-4 w-full lg:w-auto">
-            <div className="text-4xl sm:text-5xl shrink-0">
-              ⚖️
-            </div>
-
-            <div>
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-[#123b6d]">
-                उपभोक्ता मामले विभाग
-              </h1>
-
-              <p className="text-sm sm:text-base font-semibold text-[#123b6d]">
-                Department of Consumer Affairs
-              </p>
-
-              <p className="text-[10px] sm:text-xs text-slate-600">
-                Ministry of Consumer Affairs, Food & Public Distribution
-              </p>
-
-              <p className="text-[10px] sm:text-xs text-slate-600">
-                Government of India
-              </p>
-            </div>
-          </div>
-
-            {/* CENTER */}
-           
-
-            {/* RIGHT */}
-            
-          </div>
-        </div>
-
-        
-      </header>
-</div>
       {/* MAIN LOGIN AREA */}
-      <main className="flex-1 w-full">
-
-        <div className="min-h-[calc(100vh-190px)] lg:min-h-[680px] grid grid-cols-1 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
-
-          {/* LEFT HERO */}
-          <section className="relative min-h-[520px] sm:min-h-[580px] lg:min-h-0 overflow-hidden">
-
-            {/* BACKGROUND IMAGE */}
-            <img
-              src={heroImage}
-              alt="Legal Metrology Verification"
-              className="absolute inset-0 w-full h-full object-cover object-center"
-            />
-
-            {/* IMAGE OVERLAY */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#002f61]/90 via-[#06447b]/55 to-[#0a4775]/20" />
-
-            <div className="absolute inset-0 bg-gradient-to-t from-[#002d5d] via-transparent to-white/10" />
-
-            {/* HERO CONTENT */}
-            <div className="relative z-10 h-full min-h-[520px] sm:min-h-[580px] lg:min-h-0 flex flex-col justify-between px-5 sm:px-8 md:px-12 lg:px-14 xl:px-20 py-10 sm:py-12 lg:py-14 text-white">
-
-              <div className="max-w-3xl">
-
-                <h1 className="text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-extrabold leading-[1.05] tracking-tight">
-                  e-Maap Verify
-                </h1>
-
-                <h2 className="mt-4 text-xl sm:text-2xl md:text-3xl font-bold leading-tight max-w-2xl">
-                  Digital Platform for Verification & Certification
-                  <br className="hidden sm:block" />
-                  of Weighing and Measuring Instruments
-                </h2>
-
-                <p className="mt-5 text-sm sm:text-base md:text-lg leading-relaxed text-white/90 max-w-xl">
-                  Ensuring accuracy, fairness and consumer protection
-                  through technology and transparency.
-                </p>
-              </div>
-
-              {/* FEATURES */}
-              <div className="mt-10">
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 sm:gap-6">
-
-                  <Feature
-                    icon={<FileText />}
-                    title={
-                      <>
-                        Online
-                        <br />
-                        Applications
-                      </>
-                    }
-                  />
-
-                  <Feature
-                    icon={<UserCheck />}
-                    title={
-                      <>
-                        Field
-                        <br />
-                        Verification
-                      </>
-                    }
-                  />
-
-                  <Feature
-                    icon={<Award />}
-                    title={
-                      <>
-                        Certificate
-                        <br />
-                        Generation
-                      </>
-                    }
-                  />
-
-                  <Feature
-                    icon={<QrCode />}
-                    title={
-                      <>
-                        QR
-                        <br />
-                        Verification
-                      </>
-                    }
-                  />
-
-                  <Feature
-                    icon={<MapPin />}
-                    title={
-                      <>
-                        Application
-                        <br />
-                        Tracking
-                      </>
-                    }
-                  />
+      <main className="flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
+        <div className="w-full max-w-md">
+          {/* LOGIN CARD */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
+            {/* CARD HEADER */}
+            <div className="px-5 sm:px-7 pt-7 pb-2">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-lg bg-[#eaf2fa] flex items-center justify-center">
+                  <Scale className="w-6 h-6 text-[#123b6d]" />
                 </div>
-
-                <div className="mt-7 pt-5 border-t border-white/30 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm font-semibold">
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5" />
-                    Secure
-                  </span>
-
-                  <span className="hidden sm:inline">|</span>
-
-                  <span>Transparent</span>
-
-                  <span className="hidden sm:inline">|</span>
-
-                  <span>Efficient</span>
-
-                  <span className="hidden sm:inline">|</span>
-
-                  <span>Citizen Centric</span>
-                </div>
-
-                <div className="mt-7 text-xs sm:text-sm font-semibold flex items-center gap-2">
-                  <span>🇮🇳</span>
-                  <span>A Government of India Initiative</span>
-                  <span>🇮🇳</span>
+                <div>
+                  <h1 className="text-xl font-bold text-[#123b6d]">
+                    e-Maap Verify
+                  </h1>
+                  <p className="text-xs text-slate-500">
+                    Legal Metrology Verification Portal
+                  </p>
                 </div>
               </div>
+
+              <h2 className="text-xl font-bold text-[#123b6d]">
+                Login
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Enter your account details to continue
+              </p>
             </div>
-          </section>
 
-          {/* RIGHT LOGIN */}
-          <section className=" bg-[#f4f8fc] flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
-
-            <div className="h-auto w-full max-w-[540px] bg-white border border-slate-200 rounded-xl shadow-lg">
-
-              {/* CARD HEADER */}
-              <div className="px-5 sm:px-7 md:px-8 pt-6 sm:pt-8">
-
-                <h2 className="text-2xl sm:text-3xl font-bold text-[#123b6d]">
-                  Login to Your Account
-                </h2>
-
-                <p className="mt-2 text-sm sm:text-base text-slate-600">
-                  Access your dashboard and manage your applications
-                </p>
-              </div>
-
-              <div className="px-5 sm:px-7 md:px-8 py-6 sm:py-7">
-
-                {/* ERROR */}
-                {serverError && (
-                  <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                    <span>{typeof serverError === 'object' ? JSON.stringify(serverError) : String(serverError)}</span>
-                  </div>
-                )}
-
-                <form
-                  onSubmit={handleSubmit(onSubmit)}
-                  className="space-y-5"
-                >
-
-                  {/* EMAIL */}
-                  <div>
-                    <label className="block text-sm font-semibold text-[#17375e] mb-2">
-                      Email / Username
-                    </label>
-
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#17375e]" />
-
-                      <input
-                        type="email"
-                        autoComplete="email"
-                        placeholder="Email / Username"
-                        {...register('email', {
-                          required: 'Email address is required',
-                          pattern: {
-                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                            message: 'Invalid email address',
-                          },
-                        })}
-                        className="w-full h-12 pl-11 pr-4 border border-slate-300 rounded-lg bg-white text-sm sm:text-base text-[#102a4c] placeholder-slate-400 focus:outline-none focus:border-[#07549a] focus:ring-2 focus:ring-[#07549a]/15"
-                      />
-                    </div>
-
-                    {errors.email && (
-                      <p className="text-xs text-red-600 mt-1.5">
-                        {errors.email.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* PASSWORD */}
-                  <div>
-                    <label className="block text-sm font-semibold text-[#17375e] mb-2">
-                      Password
-                    </label>
-
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#17375e]" />
-
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        placeholder="Password"
-                        {...register('password', {
-                          required: 'Password is required',
-                        })}
-                        className="w-full h-12 pl-11 pr-11 border border-slate-300 rounded-lg bg-white text-sm sm:text-base text-[#102a4c] placeholder-slate-400 focus:outline-none focus:border-[#07549a] focus:ring-2 focus:ring-[#07549a]/15"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[#123b6d]"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-5 h-5" />
-                        ) : (
-                          <Eye className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
-
-                    {errors.password && (
-                      <p className="text-xs text-red-600 mt-1.5">
-                        {errors.password.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* REMEMBER / FORGOT */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-
-                    <label className="flex items-center gap-2 text-[#17375e] cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-slate-300"
-                      />
-                      <span>Remember Me</span>
-                    </label>
-
-                    <Link
-                      to="/forgot-password"
-                      className="text-[#0066cc] hover:underline font-semibold"
-                    >
-                      Forgot Password?
-                    </Link>
-                  </div>
-
-                  {/* ROLE CARDS & SELECTION */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2.5">
-                      <label className="flex items-center gap-2 text-sm font-bold text-[#17375e]">
-                        <Users className="w-4 h-4 text-[#07549a]" />
-                        Select Portal Role
-                      </label>
-                      {selectedRole && (
-                        <span className="text-xs font-semibold text-[#07549a] bg-[#07549a]/10 px-2 py-0.5 rounded border border-[#07549a]/20">
-                          Active: {ROLE_CARDS.find((r) => r.id === selectedRole)?.title || selectedRole}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Active & Selectable Role Cards */}
-                    <div
-                      role="radiogroup"
-                      aria-label="Select Portal Role"
-                      className="grid grid-cols-2 sm:grid-cols-3 gap-2.5"
-                    >
-                      {ROLE_CARDS.map((card) => {
-                        const isSelected = selectedRole === card.id;
-                        return (
-                          <button
-                            key={card.id}
-                            type="button"
-                            role="radio"
-                            aria-checked={isSelected}
-                            onClick={() => handleRoleChange(card.id)}
-                            onMouseEnter={() => prefetchDashboard(card.id)}
-                            onFocus={() => prefetchDashboard(card.id)}
-                            className={`p-3 rounded-lg border text-left transition relative flex flex-col justify-between min-h-[76px] cursor-pointer outline-none focus:ring-2 focus:ring-[#07549a]/40 ${
-                              isSelected
-                                ? 'border-[#07549a] bg-[#07549a]/10 ring-2 ring-[#07549a]/30 shadow-sm text-[#07549a]'
-                                : 'border-slate-200 bg-white hover:border-[#07549a]/50 hover:bg-slate-50 text-slate-700'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between w-full mb-1">
-                              <div
-                                className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-                                  isSelected ? 'bg-[#07549a] text-white' : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {React.cloneElement(card.icon as React.ReactElement<{ className?: string }>, {
-                                  className: `w-4 h-4 ${isSelected ? 'text-white' : 'text-[#07549a]'}`,
-                                })}
-                              </div>
-                              {isSelected && (
-                                <CheckCircle2 className="w-4 h-4 text-[#07549a] shrink-0" />
-                              )}
-                            </div>
-                            <div>
-                              <div
-                                className={`text-xs font-bold leading-tight ${
-                                  isSelected ? 'text-[#07549a]' : 'text-[#102a4c]'
-                                }`}
-                              >
-                                {card.title}
-                              </div>
-                              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
-                                {card.subtitle}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* LOGIN */}
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    onMouseEnter={() => selectedRole && prefetchDashboard(selectedRole)}
-                    onFocus={() => selectedRole && prefetchDashboard(selectedRole)}
-                    className="w-full min-h-[48px] bg-[#07549a] hover:bg-[#06457d] disabled:bg-[#07549a]/60 text-white rounded-lg font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition shadow-sm"
-                  >
-                    {submitting ? (
-                      <>
-                        <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Authenticating...
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="w-5 h-5" />
-                        Login
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                {/* OR */}
-                <div className="flex items-center gap-3 my-5">
-                  <div className="flex-1 h-px bg-slate-200" />
-                  <span className="text-sm text-slate-500 font-semibold">
-                    OR
+            {/* FORM AREA */}
+            <div className="px-5 sm:px-7 py-6">
+              {/* ERROR */}
+              {serverError && (
+                <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span>
+                    {typeof serverError === 'object'
+                      ? JSON.stringify(serverError)
+                      : String(serverError)}
                   </span>
-                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                {/* EMAIL */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Email / Username
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Enter your email"
+                      {...register('email', {
+                        required: 'Email address is required',
+                        pattern: {
+                          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                          message: 'Invalid email address',
+                        },
+                      })}
+                      className="w-full h-11 pl-11 pr-4 border border-slate-300 rounded-lg bg-white text-sm text-[#102a4c] placeholder-slate-400 focus:outline-none focus:border-[#123b6d] focus:ring-2 focus:ring-[#123b6d]/10"
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="text-xs text-red-600 mt-1.5">
+                      {errors.email.message}
+                    </p>
+                  )}
                 </div>
 
-                {/* QR */}
+                {/* PASSWORD */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      {...register('password', {
+                        required: 'Password is required',
+                      })}
+                      className="w-full h-11 pl-11 pr-11 border border-slate-300 rounded-lg bg-white text-sm text-[#102a4c] placeholder-slate-400 focus:outline-none focus:border-[#123b6d] focus:ring-2 focus:ring-[#123b6d]/10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#123b6d]"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-xs text-red-600 mt-1.5">
+                      {errors.password.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* ROLE */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Select Portal Role
+                  </label>
+                  <select
+                    value={selectedRole}
+                    onChange={(e) =>
+                      handleRoleChange(e.target.value as UserRole)
+                    }
+                    className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white text-sm text-slate-700 focus:outline-none focus:border-[#123b6d] focus:ring-2 focus:ring-[#123b6d]/10"
+                  >
+                    <option value="">Select your role (Optional)</option>
+                    {ROLE_CARDS.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.title}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedRole && (
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      {ROLE_CARDS.find((role) => role.id === selectedRole)?.subtitle}
+                    </p>
+                  )}
+                </div>
+
+                {/* REMEMBER + FORGOT */}
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <label className="flex items-center gap-2 text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-slate-300"
+                    />
+                    <span>Remember Me</span>
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-[#07549a] font-semibold hover:underline"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+
+                {/* LOGIN BUTTON */}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  onMouseEnter={() =>
+                    selectedRole && prefetchDashboard(selectedRole)
+                  }
+                  onFocus={() =>
+                    selectedRole && prefetchDashboard(selectedRole)
+                  }
+                  className="w-full h-11 bg-[#123b6d] hover:bg-[#0d2f58] disabled:bg-[#123b6d]/60 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition"
+                >
+                  {submitting ? (
+                    <>
+                      <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Authenticating...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-5 h-5" />
+                      Login
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* QUICK DEMO CREDENTIALS HELPER */}
+              <div className="mt-5 pt-4 border-t border-slate-100">
+                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Quick Demo Login:
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'satyam@gmail.com');
+                      setValue('password', 'Satyam@00');
+                      setSelectedRole('SUPER_ADMIN');
+                    }}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-left transition border border-transparent hover:border-slate-300"
+                  >
+                    <div className="font-semibold text-[#123b6d] truncate">Super Admin</div>
+                    <div className="text-[10px] text-slate-500 truncate">satyam@gmail.com</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'arman@gmail.com');
+                      setValue('password', 'Arman@00');
+                      setSelectedRole('ADMIN');
+                    }}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-left transition border border-transparent hover:border-slate-300"
+                  >
+                    <div className="font-semibold text-[#123b6d] truncate">Admin</div>
+                    <div className="text-[10px] text-slate-500 truncate">arman@gmail.com</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'shweta@gmail.com');
+                      setValue('password', 'Shweta@00');
+                      setSelectedRole('LEGAL_METROLOGY_OFFICER');
+                    }}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-left transition border border-transparent hover:border-slate-300"
+                  >
+                    <div className="font-semibold text-[#123b6d] truncate">LMO Officer</div>
+                    <div className="text-[10px] text-slate-500 truncate">shweta@gmail.com</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'arun@gmail.com');
+                      setValue('password', 'Arun@00');
+                      setSelectedRole('GATC_OFFICER');
+                    }}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-left transition border border-transparent hover:border-slate-300"
+                  >
+                    <div className="font-semibold text-[#123b6d] truncate">GATC Officer</div>
+                    <div className="text-[10px] text-slate-500 truncate">arun@gmail.com</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'mpnihal@gmail.com');
+                      setValue('password', 'Nihal@00');
+                      setSelectedRole('FIELD_VERIFICATION_OFFICER');
+                    }}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-left transition border border-transparent hover:border-slate-300"
+                  >
+                    <div className="font-semibold text-[#123b6d] truncate">Field Officer</div>
+                    <div className="text-[10px] text-slate-500 truncate">mpnihal@gmail.com</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('email', 'arpit@gmail.com');
+                      setValue('password', 'Arpit@00');
+                      setSelectedRole('BUSINESS_USER');
+                    }}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-left transition border border-transparent hover:border-slate-300"
+                  >
+                    <div className="font-semibold text-[#123b6d] truncate">Business User</div>
+                    <div className="text-[10px] text-slate-500 truncate">arpit@gmail.com</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* QR VERIFICATION */}
+              <div className="mt-5 pt-5 border-t border-slate-200">
                 <Link
                   to="/verify-certificate"
-                  className="w-full min-h-[48px] border border-[#159447] bg-[#f2fff7] hover:bg-[#e7f9ef] text-[#17375e] rounded-lg font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition"
+                  className="w-full h-11 border border-[#159447] bg-[#f4fff8] hover:bg-[#eafaf0] text-[#123b6d] rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition"
                 >
                   <QrCode className="w-5 h-5" />
-                  Verify Certificate (QR)
+                  Verify Certificate
                 </Link>
-
-                {/* SECURITY */}
-                <div className="mt-5 p-4 rounded-lg border border-blue-200 bg-blue-50">
-                  <div className="flex gap-3">
-                    <ShieldCheck className="w-6 h-6 text-[#07549a] shrink-0" />
-
-                    <div>
-                      <div className="text-sm font-bold text-[#07549a]">
-                        This is a secure government portal
-                      </div>
-
-                      <div className="text-xs sm:text-sm text-slate-600 mt-1">
-                        Your data is protected and encrypted.
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
-              {/* PUBLIC LINK */}
-              <div className="border-t border-slate-200 px-5 sm:px-7 md:px-8 py-4 text-center">
-                <Link
-                  to="/portal"
-                  className="text-sm text-[#07549a] hover:underline font-semibold"
-                >
-                  ← Back to Public Portal
-                </Link>
+              {/* SECURITY */}
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <ShieldCheck className="w-4 h-4 text-[#159447]" />
+                <span>Secure Government Portal</span>
               </div>
             </div>
-          </section>
+
+            {/* BACK TO PORTAL */}
+            <div className="border-t border-slate-200 px-5 py-4 text-center">
+              <Link
+                to="/portal"
+                className="text-sm text-[#07549a] font-semibold hover:underline"
+              >
+                ← Back to Public Portal
+              </Link>
+            </div>
+          </div>
+
+          {/* COPYRIGHT */}
+          <p className="text-center text-xs text-slate-400 mt-5">
+            © Department of Consumer Affairs, Government of India
+          </p>
         </div>
       </main>
 
       {/* FOOTER */}
-      <footer className="bg-[#063568] text-white px-4 sm:px-6 py-4">
-        <div className="w-full max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-3 text-[10px] sm:text-xs">
-
-          <div className="text-center lg:text-left">
-            Department of Consumer Affairs
-            <span className="mx-2 opacity-60">|</span>
-            Ministry of Consumer Affairs, Food & Public Distribution
-            <span className="mx-2 opacity-60">|</span>
-            Government of India
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span>Help</span>
-            <span>|</span>
-            <span>Privacy Policy</span>
-            <span>|</span>
-            <span>Terms & Conditions</span>
-          </div>
-        </div>
+      <footer className="bg-[#123b6d] text-white text-center py-3 px-4">
+        <p className="text-[10px] sm:text-xs opacity-90">
+          e-Maap Verify • Legal Metrology Verification System
+        </p>
       </footer>
     </div>
   );
 };
 
-interface FeatureProps {
-  icon: React.ReactNode;
-  title: React.ReactNode;
-}
-
-const Feature: React.FC<FeatureProps> = ({ icon, title }) => {
-  return (
-    <div className="flex flex-col items-center text-center min-w-0">
-      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white/50 flex items-center justify-center text-white">
-        {React.cloneElement(icon as React.ReactElement<{ className?: string }>, {
-          className: 'w-7 h-7 sm:w-8 sm:h-8',
-        })}
-      </div>
-
-      <div className="mt-3 text-xs sm:text-sm font-bold leading-snug">
-        {title}
-      </div>
-    </div>
-  );
-};
+export default LoginPage;

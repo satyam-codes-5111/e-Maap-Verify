@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { stakeholderApi } from '../../services/stakeholderApi';
 import { StakeholderItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
@@ -20,14 +21,35 @@ import {
 } from 'lucide-react';
 
 export const AdminStakeholdersPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stakeholders, setStakeholders] = useState<StakeholderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [kycFilter, setKycFilter] = useState('ALL');
+  const [kycFilter, setKycFilter] = useState(searchParams.get('kycStatus') || searchParams.get('status') || 'ALL');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // Sync state if URL searchParams change
+  useEffect(() => {
+    const qKyc = searchParams.get('kycStatus') || searchParams.get('status') || 'ALL';
+    setKycFilter(qKyc);
+    setPage(1);
+  }, [searchParams]);
+
+  const handleKycFilterChange = (val: string) => {
+    setKycFilter(val);
+    setPage(1);
+    const next = new URLSearchParams(searchParams);
+    if (val === 'ALL') {
+      next.delete('kycStatus');
+      next.delete('status');
+    } else {
+      next.set('kycStatus', val);
+    }
+    setSearchParams(next);
+  };
 
   // KYC verification modal
   const [selectedStakeholder, setSelectedStakeholder] = useState<StakeholderItem | null>(null);
@@ -168,40 +190,57 @@ export const AdminStakeholdersPage: React.FC = () => {
         ]}
       />
 
-      <div className="bg-white p-4 rounded-xl border border-[#D9E2EC] shadow-xs flex flex-col sm:flex-row items-center gap-3 justify-between">
-        <SearchBar
-          value={search}
-          onChange={(val) => {
-            setSearch(val);
-            setPage(1);
-          }}
-          placeholder="Search by business name, GSTIN, license..."
-        />
+      <div className="bg-white p-4 rounded-xl border border-[#D9E2EC] shadow-xs flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
+          <SearchBar
+            value={search}
+            onChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            placeholder="Search by business name, GSTIN, license..."
+          />
 
-        <FilterPanel
-          filters={[
-            {
-              key: 'kyc',
-              label: 'KYC Status',
-              value: kycFilter,
-              onChange: (val) => {
-                setKycFilter(val);
-                setPage(1);
+          <FilterPanel
+            filters={[
+              {
+                key: 'kyc',
+                label: 'KYC Status',
+                value: kycFilter,
+                onChange: (val) => handleKycFilterChange(val),
+                options: [
+                  { label: 'All KYC', value: 'ALL' },
+                  { label: 'Pending', value: 'PENDING' },
+                  { label: 'Verified', value: 'VERIFIED' },
+                  { label: 'Rejected', value: 'REJECTED' },
+                ],
               },
-              options: [
-                { label: 'All KYC', value: 'ALL' },
-                { label: 'Pending', value: 'PENDING' },
-                { label: 'Verified', value: 'VERIFIED' },
-                { label: 'Rejected', value: 'REJECTED' },
-              ],
-            },
-          ]}
-          onReset={() => {
-            setKycFilter('ALL');
-            setSearch('');
-            setPage(1);
-          }}
-        />
+            ]}
+            onReset={() => {
+              handleKycFilterChange('ALL');
+              setSearch('');
+            }}
+          />
+        </div>
+
+        {kycFilter !== 'ALL' && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+            <span className="font-semibold text-slate-500">Active Filter:</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+              <span>KYC: {kycFilter}</span>
+              <button
+                type="button"
+                onClick={() => handleKycFilterChange('ALL')}
+                className="hover:text-blue-950 font-bold ml-0.5 text-sm leading-none cursor-pointer"
+                aria-label="Clear KYC filter"
+              >
+                ×
+              </button>
+            </span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600">Showing {totalRecords} stakeholder(s)</span>
+          </div>
+        )}
       </div>
 
       <DataTable

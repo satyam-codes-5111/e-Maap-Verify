@@ -3,12 +3,17 @@ import path from 'path';
 import mongoose from 'mongoose';
 import { Certificate } from '../models/Certificate.js';
 import { Stakeholder } from '../models/Stakeholder.js';
+import { Instrument } from '../models/Instrument.js';
+import { VerificationApplication } from '../models/VerificationApplication.js';
+import { User } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/response.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getPaginationParams, buildPaginationResponse } from '../utils/pagination.js';
 import { USER_ROLES, CERTIFICATE_STATUSES } from '../config/constants.js';
 import * as certificateService from '../services/certificateService.js';
+import { generateCertificatePDF } from '../services/pdfService.js';
+import { generateVerificationQR } from '../services/qrService.js';
 
 /**
  * Generate Certificate for a finalized PASSED/VERIFIED inspection
@@ -183,6 +188,7 @@ export const getCertificateById = asyncHandler(async (req, res) => {
 
 /**
  * Download Certificate PDF
+ * GET /api/certificates/:id/pdf
  * GET /api/certificates/:id/download
  */
 export const downloadCertificatePdf = asyncHandler(async (req, res) => {
@@ -197,7 +203,7 @@ export const downloadCertificatePdf = asyncHandler(async (req, res) => {
     throw ApiError.notFound('Certificate not found.');
   }
 
-  // RBAC check: Business User can only download own certificate; Admins and LMO can download
+  // RBAC check: Business User can only download own certificate; Government Officers and Admins can download
   if (req.user.role === USER_ROLES.BUSINESS_USER) {
     const stakeholder = await Stakeholder.findOne({ user: req.user._id });
     if (!stakeholder || String(certificate.stakeholder) !== String(stakeholder._id)) {
@@ -206,35 +212,92 @@ export const downloadCertificatePdf = asyncHandler(async (req, res) => {
   } else if (
     req.user.role !== USER_ROLES.SUPER_ADMIN &&
     req.user.role !== USER_ROLES.ADMIN &&
-    req.user.role !== USER_ROLES.LEGAL_METROLOGY_OFFICER
+    req.user.role !== USER_ROLES.LEGAL_METROLOGY_OFFICER &&
+    req.user.role !== USER_ROLES.FIELD_VERIFICATION_OFFICER &&
+    req.user.role !== USER_ROLES.GATC_OFFICER
   ) {
     throw ApiError.forbidden('You are not authorized to download this certificate.');
   }
 
-  const relativePath = certificate.certificateUrl || certificate.certificatePdfPath;
-  if (!relativePath || typeof relativePath !== 'string') {
-    throw ApiError.notFound('Certificate PDF has not been generated for this record.');
+  const certsDir = path.resolve(process.cwd(), 'uploads', 'certificates');
+  if (!fs.existsSync(certsDir)) {
+    fs.mkdirSync(certsDir, { recursive: true });
   }
 
-  // Prevent path traversal in stored path
-  if (relativePath.includes('..') || /%2e/i.test(relativePath)) {
-    throw ApiError.forbidden('Security violation: Invalid certificate file path.');
+  const safeCertNum = String(certificate.certificateNumber || 'certificate').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  // Candidate paths where PDF may reside
+  const candidatePaths = [];
+  const rawPath = certificate.pdfUrl || certificate.certificatePdfPath || certificate.certificateUrl;
+  if (rawPath && typeof rawPath === 'string' && !rawPath.includes('..') && !/%2e/i.test(rawPath)) {
+    const normalized = rawPath.startsWith('/') ? rawPath.slice(1) : rawPath;
+    candidatePaths.push(path.resolve(process.cwd(), normalized));
+    candidatePaths.push(path.resolve(certsDir, path.basename(normalized)));
+  }
+  candidatePaths.push(path.resolve(certsDir, `${safeCertNum}.pdf`));
+  if (certificate.certificateNumber && !certificate.certificateNumber.includes('/')) {
+    candidatePaths.push(path.resolve(certsDir, `${certificate.certificateNumber}.pdf`));
   }
 
-  // Clean relative path leading slash if needed
-  const normalizedPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
-  const filePath = path.resolve(process.cwd(), normalizedPath);
+  let filePath = candidatePaths.find((p) => fs.existsSync(p));
+
+  // If PDF file does not exist on disk, generate using the authentic MongoDB certificate record
+  if (!filePath || !fs.existsSync(filePath)) {
+    try {
+      const populatedCert = await Certificate.findById(certificate._id)
+        .populate('stakeholder')
+        .populate('instrument')
+        .populate('application')
+        .populate('issuedBy')
+        .populate('issuedByOfficer');
+
+      if (populatedCert && populatedCert.stakeholder && populatedCert.instrument) {
+        let qrDataUrl = populatedCert.qrCodeDataUrl;
+        let qrVerificationUrl = populatedCert.qrUrl;
+        if (!qrDataUrl || !qrVerificationUrl) {
+          const qrRes = await generateVerificationQR(populatedCert.qrToken || populatedCert.qrCodeToken || 'TOKEN-' + populatedCert._id);
+          qrDataUrl = qrRes.qrDataUrl;
+          qrVerificationUrl = qrRes.publicVerificationUrl;
+        }
+
+        const pdfResult = await generateCertificatePDF({
+          certificateNumber: populatedCert.certificateNumber,
+          applicationNumber: populatedCert.application?.applicationNumber || 'N/A',
+          stakeholder: populatedCert.stakeholder,
+          instrument: populatedCert.instrument,
+          verificationDate: populatedCert.verificationDate || populatedCert.validFrom || populatedCert.issuedAt,
+          validUntil: populatedCert.validUntil,
+          verificationResult: populatedCert.result ? String(populatedCert.result) : 'VERIFIED (PASS)',
+          officer: populatedCert.issuedBy || populatedCert.issuedByOfficer || req.user,
+          qrDataUrl,
+          qrToken: populatedCert.qrToken || populatedCert.qrCodeToken,
+          verificationUrl: qrVerificationUrl,
+          tamperEvidentHash: populatedCert.tamperEvidentHash || populatedCert.cryptographicHash || 'N/A',
+        });
+
+        if (pdfResult?.filePath && fs.existsSync(pdfResult.filePath)) {
+          filePath = pdfResult.filePath;
+          certificate.pdfUrl = pdfResult.relativeUrl;
+          certificate.certificateUrl = pdfResult.relativeUrl;
+          certificate.certificatePdfPath = pdfResult.relativeUrl;
+          await certificate.save();
+        }
+      }
+    } catch (genErr) {
+      console.error('[CERTIFICATE PDF ON-DEMAND GENERATION ERROR]', genErr);
+    }
+  }
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    throw ApiError.notFound('Certificate PDF file is not available on storage.');
+  }
+
+  // Security check: ensure filePath is inside allowed project directory
   const allowedBase = path.resolve(process.cwd());
-
   if (!filePath.startsWith(allowedBase)) {
     throw ApiError.forbidden('Security violation: Inaccessible certificate file path.');
   }
 
-  if (!fs.existsSync(filePath)) {
-    throw ApiError.notFound('Certificate PDF file is not available on storage.');
-  }
-
-  const safeCertNum = String(certificate.certificateNumber || 'certificate').replace(/[^a-zA-Z0-9_-]/g, '_');
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');

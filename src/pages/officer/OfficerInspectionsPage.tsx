@@ -21,14 +21,31 @@ import {
 
 export const OfficerInspectionsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const scheduleIdParam = searchParams.get('scheduleId');
   const instrumentIdParam = searchParams.get('instrumentId');
 
   const [inspections, setInspections] = useState<InspectionItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // Sync state if URL query params change
+  useEffect(() => {
+    const qStatus = searchParams.get('status') || 'ALL';
+    setStatusFilter(qStatus);
+  }, [searchParams]);
+
+  const handleStatusFilterChange = (val: string) => {
+    setStatusFilter(val);
+    const next = new URLSearchParams(searchParams);
+    if (val === 'ALL') {
+      next.delete('status');
+    } else {
+      next.set('status', val);
+    }
+    setSearchParams(next);
+  };
 
   const fetchInspections = useCallback(async () => {
     setLoading(true);
@@ -272,24 +289,45 @@ export const OfficerInspectionsPage: React.FC = () => {
         ]}
       />
 
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-3">
         <FilterPanel
           filters={[
             {
               key: 'status',
-              label: 'Status',
+              label: 'Inspection Status',
               value: statusFilter,
-              onChange: (val) => setStatusFilter(val),
+              onChange: (val) => handleStatusFilterChange(val),
               options: [
                 { label: 'All Statuses', value: 'ALL' },
-                { label: 'Draft', value: 'DRAFT' },
                 { label: 'In Progress', value: 'IN_PROGRESS' },
+                { label: 'Draft', value: 'DRAFT' },
+                { label: 'Passed / Verified', value: 'PASSED' },
+                { label: 'Failed / Rejected', value: 'FAILED' },
                 { label: 'Finalized', value: 'FINALIZED' },
               ],
             },
           ]}
-          onReset={() => setStatusFilter('ALL')}
+          onReset={() => handleStatusFilterChange('ALL')}
         />
+
+        {statusFilter !== 'ALL' && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+            <span className="font-semibold text-slate-500">Active Filter:</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+              <span>Status: {statusFilter}</span>
+              <button
+                type="button"
+                onClick={() => handleStatusFilterChange('ALL')}
+                className="hover:text-teal-950 font-bold ml-0.5 text-sm leading-none cursor-pointer"
+                aria-label="Clear status filter"
+              >
+                ×
+              </button>
+            </span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600">Showing {inspections.length} inspection(s)</span>
+          </div>
+        )}
       </div>
 
       <DataTable

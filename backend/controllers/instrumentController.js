@@ -36,14 +36,15 @@ export const getInstruments = asyncHandler(async (req, res) => {
     filter.stakeholder = req.query.stakeholderId;
   }
 
-  if (req.query.status) {
-    if (req.query.status === 'EXPIRED') {
+  const instStatus = req.query.status || req.query.verificationStatus;
+  if (instStatus) {
+    if (instStatus === 'EXPIRED') {
       const now = new Date();
       filter.$or = [
         { status: INSTRUMENT_STATUSES.EXPIRED },
         { nextVerificationDueDate: { $lt: now } },
       ];
-    } else if (req.query.status === 'EXPIRING_SOON') {
+    } else if (instStatus === 'EXPIRING_SOON') {
       const now = new Date();
       const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       filter.$or = [
@@ -51,7 +52,7 @@ export const getInstruments = asyncHandler(async (req, res) => {
         { nextVerificationDueDate: { $lte: in30Days } },
       ];
     } else {
-      filter.status = req.query.status;
+      filter.status = instStatus;
     }
   }
   if (req.query.category && req.query.category !== 'undefined') {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { applicationApi } from '../../services/applicationApi';
 import { VerificationApplicationItem } from '../../types';
 import { getErrorMessage } from '../../services/api';
@@ -18,14 +18,34 @@ import {
 } from 'lucide-react';
 
 export const AdminApplicationsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [applications, setApplications] = useState<VerificationApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  // Sync state if URL searchParams change
+  useEffect(() => {
+    const qStatus = searchParams.get('status') || 'ALL';
+    setStatusFilter(qStatus);
+    setPage(1);
+  }, [searchParams]);
+
+  const handleStatusFilterChange = (val: string) => {
+    setStatusFilter(val);
+    setPage(1);
+    const next = new URLSearchParams(searchParams);
+    if (val === 'ALL') {
+      next.delete('status');
+    } else {
+      next.set('status', val);
+    }
+    setSearchParams(next);
+  };
 
   // Schedule Verification Modal State
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -210,43 +230,61 @@ export const AdminApplicationsPage: React.FC = () => {
         }
       />
 
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center gap-3 justify-between">
-        <SearchBar
-          value={search}
-          onChange={(val) => {
-            setSearch(val);
-            setPage(1);
-          }}
-          placeholder="Search application number..."
-        />
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
+          <SearchBar
+            value={search}
+            onChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            placeholder="Search application number..."
+          />
 
-        <FilterPanel
-          filters={[
-            {
-              key: 'status',
-              label: 'Status',
-              value: statusFilter,
-              onChange: (val) => {
-                setStatusFilter(val);
-                setPage(1);
+          <FilterPanel
+            filters={[
+              {
+                key: 'status',
+                label: 'Status',
+                value: statusFilter,
+                onChange: (val) => handleStatusFilterChange(val),
+                options: [
+                  { label: 'All Statuses', value: 'ALL' },
+                  { label: 'Pending Scrutiny Queue', value: 'PENDING' },
+                  { label: 'Submitted', value: 'SUBMITTED' },
+                  { label: 'Under Review', value: 'UNDER_REVIEW' },
+                  { label: 'Approved', value: 'APPROVED' },
+                  { label: 'Scheduled', value: 'SCHEDULED' },
+                  { label: 'Verified', value: 'VERIFIED' },
+                  { label: 'Rejected', value: 'REJECTED' },
+                ],
               },
-              options: [
-                { label: 'All Statuses', value: 'ALL' },
-                { label: 'Submitted', value: 'SUBMITTED' },
-                { label: 'Under Review', value: 'UNDER_REVIEW' },
-                { label: 'Approved', value: 'APPROVED' },
-                { label: 'Scheduled', value: 'SCHEDULED' },
-                { label: 'Verified', value: 'VERIFIED' },
-                { label: 'Rejected', value: 'REJECTED' },
-              ],
-            },
-          ]}
-          onReset={() => {
-            setStatusFilter('ALL');
-            setSearch('');
-            setPage(1);
-          }}
-        />
+            ]}
+            onReset={() => {
+              handleStatusFilterChange('ALL');
+              setSearch('');
+            }}
+          />
+        </div>
+
+        {statusFilter !== 'ALL' && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+            <span className="font-semibold text-slate-500">Active Filter:</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+              <span>Status: {statusFilter === 'PENDING' ? 'Pending Scrutiny Queue' : statusFilter}</span>
+              <button
+                type="button"
+                onClick={() => handleStatusFilterChange('ALL')}
+                className="hover:text-teal-950 font-bold ml-0.5 text-sm leading-none cursor-pointer"
+                aria-label="Clear status filter"
+              >
+                ×
+              </button>
+            </span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600">Showing {totalRecords} record(s)</span>
+          </div>
+        )}
       </div>
 
       <DataTable
