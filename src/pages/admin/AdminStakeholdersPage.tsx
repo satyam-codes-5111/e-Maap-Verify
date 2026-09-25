@@ -69,8 +69,9 @@ export const AdminStakeholdersPage: React.FC = () => {
         const list = Array.isArray(res.data) ? res.data : (res.data.stakeholders || []);
         setStakeholders(list);
         if (res.data.pagination) {
-          setTotalPages(res.data.pagination.pages || 1);
-          setTotalRecords(res.data.pagination.total || 0);
+          const pg = res.data.pagination;
+          setTotalPages(Math.max(1, Number(pg.totalPages || pg.pages) || 1));
+          setTotalRecords(Number(pg.total) || 0);
         }
       }
     } catch (err: unknown) {

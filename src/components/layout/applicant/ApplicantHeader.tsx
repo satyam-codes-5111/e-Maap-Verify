@@ -19,13 +19,13 @@ import {
 
 interface ApplicantHeaderProps {
   onToggleMobileMenu: () => void;
-  desktopSidebarCollapsed: boolean;
-  onToggleDesktopSidebar: () => void;
+  desktopSidebarCollapsed?: boolean;
+  onToggleDesktopSidebar?: () => void;
 }
 
 export const ApplicantHeader: React.FC<ApplicantHeaderProps> = ({
   onToggleMobileMenu,
-  desktopSidebarCollapsed,
+  desktopSidebarCollapsed = false,
   onToggleDesktopSidebar,
 }) => {
   const { user, logout } = useAuth();
@@ -81,7 +81,7 @@ export const ApplicantHeader: React.FC<ApplicantHeaderProps> = ({
   const displayEmail = user?.email || '';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200 shadow-xs pt-[var(--sat,0px)] select-none">
+    <header className="fixed top-0 left-0 right-0 lg:left-64 xl:left-72 z-40 bg-white border-b border-[#D9E2EC] shadow-xs pt-[var(--sat,0px)] select-none">
       {/* Official Government Tricolor Strip */}
       <div className="h-1 w-full flex">
         <div className="h-full flex-1 bg-[#FF9933]" title="Saffron" />

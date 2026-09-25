@@ -48,6 +48,8 @@ export const getCertificates = asyncHandler(async (req, res) => {
   const { page, limit, skip, sort } = getPaginationParams(req.query);
   const filter = {};
 
+  const andConditions = [];
+
   // RBAC Filtering
   if (req.user.role === USER_ROLES.BUSINESS_USER) {
     const stakeholder = await Stakeholder.findOne({ user: req.user._id });
@@ -62,11 +64,13 @@ export const getCertificates = asyncHandler(async (req, res) => {
         'registeredAddress.district': req.user.jurisdiction.district,
       }).select('_id');
       const stakeholderIds = stakeholders.map((s) => s._id);
-      filter.$or = [
-        { issuedBy: req.user._id },
-        { issuedByOfficer: req.user._id },
-        { stakeholder: { $in: stakeholderIds } },
-      ];
+      andConditions.push({
+        $or: [
+          { issuedBy: req.user._id },
+          { issuedByOfficer: req.user._id },
+          { stakeholder: { $in: stakeholderIds } },
+        ],
+      });
     }
   }
 
@@ -75,44 +79,57 @@ export const getCertificates = asyncHandler(async (req, res) => {
     const statusQuery = req.query.status || req.query.certificateStatus;
     const now = new Date();
     if (statusQuery === 'ACTIVE' || statusQuery === 'VALID') {
-      filter.$or = [
-        { certificateStatus: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } },
-        { status: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } },
-      ];
+      andConditions.push({
+        $or: [
+          { certificateStatus: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } },
+          { status: { $in: [CERTIFICATE_STATUSES.ACTIVE, CERTIFICATE_STATUSES.VALID] } },
+        ],
+      });
       filter.validUntil = { $gte: now };
     } else if (statusQuery === 'EXPIRED') {
-      filter.$or = [
-        { certificateStatus: CERTIFICATE_STATUSES.EXPIRED },
-        { status: CERTIFICATE_STATUSES.EXPIRED },
-        { validUntil: { $lt: now } },
-      ];
+      andConditions.push({
+        $or: [
+          { certificateStatus: CERTIFICATE_STATUSES.EXPIRED },
+          { status: CERTIFICATE_STATUSES.EXPIRED },
+          { validUntil: { $lt: now } },
+        ],
+      });
     } else {
-      filter.$or = [
-        { certificateStatus: statusQuery },
-        { status: statusQuery },
-      ];
+      andConditions.push({
+        $or: [
+          { certificateStatus: statusQuery },
+          { status: statusQuery },
+        ],
+      });
     }
   }
 
-  // Filter by search query (certificateNumber, qrToken)
+  // Filter by search query (certificateNumber, qrToken, sealNumber)
   if (req.query.search) {
     const searchRegex = { $regex: req.query.search, $options: 'i' };
-    filter.$or = [
-      { certificateNumber: searchRegex },
-      { qrToken: searchRegex },
-      { qrVerificationToken: searchRegex },
-    ];
+    andConditions.push({
+      $or: [
+        { certificateNumber: searchRegex },
+        { sealNumber: searchRegex },
+        { qrToken: searchRegex },
+        { qrVerificationToken: searchRegex },
+      ],
+    });
   }
 
   // Filter by date range for validUntil
   if (req.query.validUntilFrom || req.query.validUntilTo) {
-    filter.validUntil = {};
+    filter.validUntil = filter.validUntil || {};
     if (req.query.validUntilFrom) {
       filter.validUntil.$gte = new Date(req.query.validUntilFrom);
     }
     if (req.query.validUntilTo) {
       filter.validUntil.$lte = new Date(req.query.validUntilTo);
     }
+  }
+
+  if (andConditions.length > 0) {
+    filter.$and = andConditions;
   }
 
   const [certificates, total] = await Promise.all([

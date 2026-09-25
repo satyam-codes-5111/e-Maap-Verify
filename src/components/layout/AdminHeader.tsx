@@ -57,7 +57,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileSidebar,
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 lg:left-64 xl:left-72 z-[9999] bg-white border-b border-[#D9E2EC] shadow-xs select-none pt-[var(--sat,0px)]">
+    <header className="fixed top-0 left-0 right-0 md:left-16 lg:left-64 xl:left-72 z-[9999] bg-white border-b border-[#D9E2EC] shadow-xs select-none pt-[var(--sat,0px)] transition-all duration-200">
       {/* Top Government of India Tricolor Strip */}
       <div className="h-1 w-full flex" aria-hidden="true">
         <div className="h-full flex-1 bg-[#FF9933]" title="Saffron" />
@@ -65,13 +65,13 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileSidebar,
         <div className="h-full flex-1 bg-[#138808]" title="India Green" />
       </div>
 
-      <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-3">
+      <div className="h-16 px-3.5 sm:px-5 lg:px-6 flex items-center justify-between gap-3">
         {/* Left Side: Hamburger & Official Government Identity */}
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={onToggleMobileSidebar}
-            className="lg:hidden p-2 rounded-md text-[#172B4D] hover:text-[#123B6D] hover:bg-[#F5F8FC] border border-[#D9E2EC] transition min-w-[42px] min-h-[42px] flex items-center justify-center shrink-0"
+            className="md:hidden p-2 rounded-md text-[#172B4D] hover:text-[#123B6D] hover:bg-[#F5F8FC] border border-[#D9E2EC] transition min-w-[42px] min-h-[42px] flex items-center justify-center shrink-0"
             aria-label="Open Navigation Drawer"
           >
             <Menu className="w-5 h-5" />

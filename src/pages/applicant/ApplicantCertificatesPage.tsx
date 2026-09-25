@@ -9,6 +9,7 @@ import { Toast, ToastMessage } from '../../components/common/Toast';
 import { Modal } from '../../components/common/Modal';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Pagination } from '../../components/common/Pagination';
 import { formatInstrumentCapacity } from '../../utils/formatters';
 import {
   Award,
@@ -98,8 +99,9 @@ export const ApplicantCertificatesPage: React.FC = () => {
       if (res.success && res.data) {
         setCertificates(res.data.certificates || []);
         if (res.data.pagination) {
-          setTotalPages(res.data.pagination.pages || 1);
-          setTotalRecords(res.data.pagination.total || 0);
+          const pg = res.data.pagination;
+          setTotalPages(Math.max(1, Number(pg.totalPages || pg.pages) || 1));
+          setTotalRecords(Number(pg.total) || 0);
         }
       }
     } catch (err: unknown) {
@@ -363,30 +365,13 @@ export const ApplicantCertificatesPage: React.FC = () => {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-white px-4 py-3 rounded-xl border border-slate-200 text-xs">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-50 hover:bg-slate-50 font-semibold"
-              >
-                Previous
-              </button>
-              <span className="text-slate-600">
-                Page <strong className="text-slate-900">{page}</strong> of{' '}
-                <strong className="text-slate-900">{totalPages}</strong>
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-50 hover:bg-slate-50 font-semibold"
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalRecords={totalRecords}
+            pageSize={12}
+            onPageChange={(p) => setPage(p)}
+          />
         </>
       )}
 

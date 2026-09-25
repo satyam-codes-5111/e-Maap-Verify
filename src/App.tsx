@@ -10,6 +10,7 @@ import { ApplicantLayout } from './components/layout/applicant/ApplicantLayout';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { ScrollToTop } from './components/common/ScrollToTop';
+import { AndroidBackButtonHandler } from './components/common/AndroidBackButtonHandler';
 
 // Public Pages
 import { LoginPage } from './pages/public/LoginPage';
@@ -179,6 +180,7 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <ScrollToTop />
+        <AndroidBackButtonHandler />
         <AuthProvider>
           <ErrorBoundary>
             <React.Suspense fallback={<PageLoadingFallback />}>

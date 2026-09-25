@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHeader } from './AdminHeader';
@@ -7,6 +7,16 @@ import { ShieldCheck } from 'lucide-react';
 export const AdminLayout: React.FC = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const location = useLocation();
+
+  useEffect(() => {
+    document.body.setAttribute('data-mobile-menu-open', mobileSidebarOpen ? 'true' : 'false');
+    const handleClose = () => setMobileSidebarOpen(false);
+    window.addEventListener('emaap:close-mobile-drawer', handleClose);
+    return () => {
+      document.body.removeAttribute('data-mobile-menu-open');
+      window.removeEventListener('emaap:close-mobile-drawer', handleClose);
+    };
+  }, [mobileSidebarOpen]);
 
   // Determine current page context title
   const getPageTitle = (pathname: string): string => {
@@ -36,9 +46,14 @@ export const AdminLayout: React.FC = () => {
           <AdminSidebar />
         </div>
 
+        {/* Tablet Compact Master Sidebar: Sticky, Icon-only (w-16), Full viewport height */}
+        <div className="hidden md:block lg:hidden shrink-0 sticky top-0 h-screen z-20">
+          <AdminSidebar collapsed />
+        </div>
+
         {/* Mobile Off-Canvas Drawer */}
         {mobileSidebarOpen && (
-          <div className="fixed inset-0 z-[10000] lg:hidden flex">
+          <div className="fixed inset-0 z-[10000] md:hidden flex">
             {/* Backdrop */}
             <div
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
@@ -92,3 +107,5 @@ export const AdminLayout: React.FC = () => {
     </div>
   );
 };
+
+export default AdminLayout;

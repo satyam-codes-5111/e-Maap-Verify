@@ -86,20 +86,20 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   const cardInner = (
     <>
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
+      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3 min-w-0">
+        <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">{title}</span>
         <div
-          className={`w-9 h-9 rounded-lg flex items-center justify-center border ${currentVariant.bg} ${currentVariant.text} ${currentVariant.border} ${isInteractive ? 'group-hover:scale-105 transition-transform' : ''}`}
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border shrink-0 ${currentVariant.bg} ${currentVariant.text} ${currentVariant.border} ${isInteractive ? 'group-hover:scale-105 transition-transform' : ''}`}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
       </div>
 
-      <div className="flex items-baseline gap-2">
-        <div className="text-2xl font-bold text-slate-900 tracking-tight font-mono">{value}</div>
+      <div className="flex items-baseline gap-2 min-w-0 flex-wrap">
+        <div className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight font-mono truncate">{value}</div>
         {badge && (
           <span
-            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
               badge.type === 'positive'
                 ? 'bg-emerald-100 text-emerald-800'
                 : badge.type === 'urgent'
@@ -112,7 +112,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         )}
       </div>
 
-      {description && <p className="text-xs text-slate-500 mt-1.5 leading-snug">{description}</p>}
+      {description && <p className="text-[11px] sm:text-xs text-slate-500 mt-1 sm:mt-1.5 leading-snug line-clamp-2">{description}</p>}
     </>
   );
 
@@ -125,7 +125,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       <Link
         to={to}
         aria-label={defaultAriaLabel}
-        className={`bg-white rounded-xl border border-slate-200 p-5 shadow-xs ${interactiveClasses} ${className}`}
+        className={`bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs min-w-0 ${interactiveClasses} ${className}`}
       >
         {cardInner}
       </Link>
@@ -145,7 +145,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           }
         }}
         aria-label={defaultAriaLabel}
-        className={`bg-white rounded-xl border border-slate-200 p-5 shadow-xs ${interactiveClasses} ${className}`}
+        className={`bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs min-w-0 ${interactiveClasses} ${className}`}
       >
         {cardInner}
       </div>
@@ -155,7 +155,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <div
       aria-label={defaultAriaLabel}
-      className={`bg-white rounded-xl border border-slate-200 p-5 shadow-xs ${className}`}
+      className={`bg-white rounded-xl border border-slate-200 p-3.5 sm:p-5 shadow-xs min-w-0 ${className}`}
     >
       {cardInner}
     </div>

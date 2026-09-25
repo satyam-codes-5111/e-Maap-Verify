@@ -258,10 +258,10 @@ export const InspectionEvidencePage: React.FC = () => {
       </div>
 
       {/* GPS Geo-Tagging Section */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-teal-700" />
+            <MapPin className="w-4 h-4 text-teal-700 shrink-0" />
             <div>
               <h2 className="text-sm font-bold text-slate-900">
                 Premise GPS Geolocation
@@ -275,14 +275,14 @@ export const InspectionEvidencePage: React.FC = () => {
             type="button"
             onClick={handleCaptureGps}
             disabled={locating}
-            className="px-3.5 py-1.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 transition flex items-center gap-1.5"
+            className="w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 transition flex items-center justify-center gap-1.5"
           >
             <Compass className="w-3.5 h-3.5" />
             <span>{locating ? 'Capturing GPS...' : 'Capture GPS'}</span>
           </button>
         </div>
 
-        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-slate-600">Geo-Tagged Location:</span>
             {!isOnline && (
@@ -292,8 +292,8 @@ export const InspectionEvidencePage: React.FC = () => {
             )}
           </div>
           {latitude && longitude ? (
-            <div className="flex items-center gap-2">
-              <span className="font-mono font-bold text-teal-800 bg-white px-2.5 py-1 rounded border border-slate-200">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono font-bold text-teal-800 bg-white px-2.5 py-1 rounded border border-slate-200 text-xs">
                 {latitude.toFixed(5)}° N, {longitude.toFixed(5)}° E
               </span>
               {accuracy !== null && (

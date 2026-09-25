@@ -45,6 +45,7 @@ export function buildPaginationResponse(data, total, page, limit, customKey = nu
       limit,
       total,
       totalPages,
+      pages: totalPages,
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
     },

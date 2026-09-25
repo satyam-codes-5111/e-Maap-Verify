@@ -1,17 +1,41 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { Capacitor } from '@capacitor/core';
 
 // Base API configuration using environment variable or default relative /api
 export function getApiBaseUrl(): string {
   const envUrl = import.meta.env.VITE_API_URL;
-  // If running in browser and envUrl explicitly points to localhost while we are on a remote host (like Cloud Run), ignore localhost
+  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
+
+  if (isNative) {
+    // 1. Check if user configured a custom backend in settings
+    const customEndpoint =
+      typeof localStorage !== 'undefined' ? localStorage.getItem('emaap_custom_api_url') : null;
+    if (customEndpoint && customEndpoint.trim() !== '') {
+      const cleanCustom = customEndpoint.trim().replace(/\/$/, '');
+      return cleanCustom.endsWith('/api') ? cleanCustom : `${cleanCustom}/api`;
+    }
+
+    // 2. Check if build-time VITE_API_URL is provided and not localhost
+    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+      const cleanEnv = envUrl.trim().replace(/\/$/, '');
+      return cleanEnv.endsWith('/api') ? cleanEnv : `${cleanEnv}/api`;
+    }
+
+    // 3. Fallback to production deployed HTTPS endpoint
+    return 'https://ais-dev-iurfjxifbhrnq7l5n5lyj2-524617491721.asia-east1.run.app/api';
+  }
+
+  // Web Browser: If running in browser and envUrl explicitly points to localhost while we are on a remote host (like Cloud Run), ignore localhost
   if (typeof window !== 'undefined') {
     if (envUrl && envUrl.includes('localhost') && !window.location.hostname.includes('localhost')) {
       return '/api';
     }
   }
+
   if (!envUrl) {
     return '/api';
   }
+
   const trimmed = envUrl.replace(/\/$/, '');
   return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
 }

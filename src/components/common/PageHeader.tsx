@@ -22,16 +22,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     <div className={`mb-6 space-y-2 ${className}`}>
       {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-w-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tracking-tight break-words">{title}</h1>
             {badge}
           </div>
-          {description && <p className="text-xs sm:text-sm text-slate-500 mt-1">{description}</p>}
+          {description && <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-snug break-words">{description}</p>}
         </div>
 
-        {actions && <div className="flex items-center gap-2 flex-wrap shrink-0">{actions}</div>}
+        {actions && <div className="flex items-center gap-2 flex-wrap shrink-0 w-full sm:w-auto">{actions}</div>}
       </div>
     </div>
   );
