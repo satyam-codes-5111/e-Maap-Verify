@@ -165,6 +165,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// Public downloads handler (e.g., e-Maap-Verify.apk)
+app.get('/downloads/:filename', (req, res, next) => {
+  const filename = path.basename(req.params.filename);
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'downloads', filename),
+    path.join(process.cwd(), 'dist', 'downloads', filename),
+    path.join(process.cwd(), 'android', 'app', 'build', 'outputs', 'apk', 'release', filename),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      return res.download(p, filename);
+    }
+  }
+  next();
+});
+
 // Secure uploads access with JWT authentication and strict authorization rules
 app.route('/uploads/:folder/:filename')
   .get(protect, getSecureFile)
