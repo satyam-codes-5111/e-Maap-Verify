@@ -683,7 +683,7 @@ export const LandingPage: React.FC = () => {
               </div>
 
               <a
-                href="/downloads/e-Maap-Verify.apk"
+                href="/https://github.com/satyam-codes-5111/e-Maap-Verify/releases/tag/v1.0.0"
                 download="e-Maap-Verify.apk"
                 onClick={handleDownloadApk}
                 className="inline-flex items-center justify-center gap-1 sm:gap-2 bg-white hover:bg-slate-50 text-[#123b6d] border border-[#123b6d]/30 hover:border-[#123b6d] font-bold rounded-lg px-2.5 sm:px-4 py-1.5 sm:py-2 transition shadow-sm text-xs sm:text-sm whitespace-nowrap min-h-[38px] sm:min-h-[42px]"
@@ -1416,7 +1416,7 @@ export const LandingPage: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
 
                 <a
-                  href="/downloads/e-Maap-Verify.apk"
+                  href="https://github.com/satyam-codes-5111/e-Maap-Verify/releases/tag/v1.0.0"
                   download="e-Maap-Verify.apk"
                   onClick={handleDownloadApk}
                   className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-[#123b6d] font-bold rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 transition shadow-sm text-sm sm:text-base"
